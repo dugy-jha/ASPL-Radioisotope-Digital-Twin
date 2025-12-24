@@ -40,6 +40,14 @@ const UI = {
             });
         }
 
+        // Validation test case button
+        const loadLu177Test = document.getElementById('loadLu177Test');
+        if (loadLu177Test) {
+            loadLu177Test.addEventListener('click', () => {
+                this.loadLu177TestCase();
+            });
+        }
+
         // Get all input elements
         const inputs = document.querySelectorAll('#controls input, #controls select');
         inputs.forEach(input => {
@@ -502,6 +510,262 @@ const UI = {
                 console.error('MathJax rendering error:', err);
             });
         }
+    },
+
+    // ============================================================================
+    // VALIDATION TEST CASES
+    // ============================================================================
+
+    /**
+     * Load Lu-177 validation test case
+     * Sets all input values programmatically and validates the results
+     */
+    loadLu177TestCase: function() {
+        console.log('========================================');
+        console.log('Lu-177 Validation Test Case');
+        console.log('========================================');
+
+        // Test case parameters
+        const half_life_days = 6.647;
+        const sigma_barns = 2090;
+        const parent_enrichment = 0.75;
+        const source_strength = 1.0e13; // neutrons per second
+        const angular_anisotropy = 0;
+        const moderator_efficiency = 0.8;
+        const target_radius_cm = 2.0;
+        const target_thickness_cm = 0.2;
+        const target_distance_cm = 5.0;
+        const target_density = 9.42; // g/cm³ (Lu2O3)
+        const target_molar_mass = 397.93; // g/mol (Lu2O3)
+        const irradiation_days = 5.0;
+        const coolant_mass_flow = 0.5; // kg/s
+        const Cp = 4180; // J/kg/K
+        const max_deltaT = 40; // K
+        const damage_rate = 1e-7; // dpa/s
+        const damage_limit = 0.5; // dpa
+        const cooling_hours = 4;
+        const processing_hours = 6;
+        const transport_hours = 12;
+        const sigma_flux = 0.10;
+        const sigma_sigma = 0.05;
+        const sigma_geom = 0.05;
+        const sigma_chem = 0.10;
+
+        // Convert sigma from barns to cm² (1 barn = 1e-24 cm²)
+        const sigma_cm2 = sigma_barns * 1e-24;
+
+        // Calculate parent atom density from Lu2O3
+        // Lu2O3: 2 Lu atoms per molecule
+        // Number density = (density * N_A * enrichment) / (molar_mass / 2)
+        const N_AVOGADRO = 6.02214076e23; // atoms/mol
+        const lu_atoms_per_molecule = 2;
+        const parent_density_atoms_cm3 = (target_density * N_AVOGADRO * parent_enrichment) / 
+                                         (target_molar_mass / lu_atoms_per_molecule);
+
+        // Calculate flux from source strength
+        // For point source at distance d: flux = source_strength / (4π * d²)
+        // Account for moderator efficiency
+        const flux_at_target = (source_strength * moderator_efficiency) / (4 * Math.PI * target_distance_cm * target_distance_cm);
+
+        // Set input values
+        document.getElementById('halfLife').value = half_life_days;
+        document.getElementById('crossSection').value = sigma_cm2;
+        document.getElementById('enrichment').value = parent_enrichment;
+        document.getElementById('sigmaBurn').value = 0; // No burn-up
+        document.getElementById('sourceType').value = 'neutron';
+        this.toggleSourceType();
+        document.getElementById('flux').value = flux_at_target;
+        document.getElementById('dutyCycle').value = 1.0;
+        document.getElementById('targetRadius').value = target_radius_cm;
+        document.getElementById('targetThickness').value = target_thickness_cm;
+        document.getElementById('sourceDistance').value = target_distance_cm;
+        document.getElementById('parentDensity').value = parent_density_atoms_cm3;
+        document.getElementById('coolantFlow').value = coolant_mass_flow;
+        document.getElementById('heatCapacity').value = Cp;
+        document.getElementById('deltaTMax').value = max_deltaT;
+        document.getElementById('dpaLimit').value = damage_limit;
+        document.getElementById('dpaRate').value = damage_rate;
+        document.getElementById('irradiationTime').value = irradiation_days;
+        document.getElementById('chemistryDelay').value = processing_hours;
+        document.getElementById('transportTime').value = transport_hours;
+        document.getElementById('chemistryLoss').value = 0; // No chemistry loss for this case
+        document.getElementById('sigmaFlux').value = sigma_flux * 100; // Convert to percentage
+        document.getElementById('sigmaSigma').value = sigma_sigma * 100;
+        document.getElementById('sigmaGeom').value = sigma_geom * 100;
+        document.getElementById('sigmaChem').value = sigma_chem * 100;
+
+        // Update charts
+        this.updateAllCharts();
+
+        // Wait a moment for calculations, then validate
+        setTimeout(() => {
+            this.validateLu177Results();
+        }, 100);
+    },
+
+    /**
+     * Validate Lu-177 test case results
+     */
+    validateLu177Results: function() {
+        console.log('\n--- VALIDATION: Intermediate Values ---');
+
+        // Get current parameter values
+        const halfLife = this.getParam('halfLife', 6.647);
+        const crossSection = this.getParam('crossSection', 2090 * 1e-24);
+        const enrichment = this.getParam('enrichment', 0.75);
+        const flux = this.getParam('flux', 1e14);
+        const targetRadius = this.getParam('targetRadius', 2.0);
+        const targetThickness = this.getParam('targetThickness', 0.2);
+        const sourceDistance = this.getParam('sourceDistance', 5.0);
+        const parentDensity = this.getParam('parentDensity', 5e22);
+        const irradiationTimeDays = this.getParam('irradiationTime', 5.0);
+        const chemistryDelayHours = this.getParam('chemistryDelay', 6);
+        const transportTimeHours = this.getParam('transportTime', 12);
+        const chemistryLoss = this.getParam('chemistryLoss', 0);
+
+        // Calculate intermediate values using Model functions
+        const lambda = Model.decayConstant(halfLife);
+        const t_irr = irradiationTimeDays * 86400;
+        const f_sat = Model.saturationFactor(lambda, t_irr);
+        const Omega = Model.solidAngle(sourceDistance, targetRadius);
+        const eta = Model.geometricEfficiency(Omega);
+        const A_target = Math.PI * targetRadius * targetRadius;
+        const N_parent = parentDensity * enrichment * A_target * targetThickness;
+        const Sigma = Model.macroscopicCrossSection(parentDensity, crossSection);
+        const f_shield = Model.selfShieldingFactor(Sigma, targetThickness);
+        const R = Model.reactionRate(N_parent, crossSection, flux, f_shield);
+        const N_EOB = Model.atomsAtEOB(R, f_sat, lambda);
+        const A_EOB = Model.activity(lambda, N_EOB);
+        const t_chem = chemistryDelayHours * 3600;
+        const A_after_chem = A_EOB * Math.exp(-chemistryLoss * t_chem);
+        const t_transport = transportTimeHours * 3600;
+        const A_delivered = A_after_chem * Math.exp(-lambda * t_transport);
+
+        // Log intermediate values
+        console.log(`1. Decay constant λ = ${lambda.toExponential(3)} s⁻¹`);
+        console.log(`2. Saturation factor at ${irradiationTimeDays} days = ${f_sat.toFixed(4)}`);
+        console.log(`3. Solid angle Ω = ${Omega.toFixed(4)} sr`);
+        console.log(`4. Geometric efficiency η = ${eta.toFixed(6)}`);
+        console.log(`5. Target face area = ${A_target.toFixed(2)} cm²`);
+        console.log(`6. Neutron flux at target = ${flux.toExponential(3)} n/cm²/s`);
+        console.log(`7. Parent atom density = ${parentDensity.toExponential(3)} atoms/cm³`);
+        console.log(`8. Total parent atoms in target = ${N_parent.toExponential(3)}`);
+        console.log(`9. Reaction rate R = ${R.toExponential(3)} reactions/s`);
+        console.log(`10. Product atoms at EOB = ${N_EOB.toExponential(3)}`);
+        console.log(`11. Activity at EOB = ${A_EOB.toExponential(3)} Bq = ${(A_EOB / 1e9).toFixed(2)} GBq`);
+        console.log(`12. Activity after chemistry = ${A_after_chem.toExponential(3)} Bq`);
+        console.log(`13. Delivered activity = ${A_delivered.toExponential(3)} Bq = ${(A_delivered / 1e9).toFixed(2)} GBq`);
+
+        // Validation checks
+        console.log('\n--- VALIDATION: Order-of-Magnitude Checks ---');
+        const failures = [];
+
+        // Check 1: Decay constant
+        const lambda_expected_min = 1.0e-6;
+        const lambda_expected_max = 1.5e-6;
+        if (lambda < lambda_expected_min || lambda > lambda_expected_max) {
+            failures.push(`Decay constant λ = ${lambda.toExponential(3)} s⁻¹ (expected ~1.21e-6 s⁻¹)`);
+        } else {
+            console.log('✓ Decay constant within expected range');
+        }
+
+        // Check 2: Saturation factor
+        if (f_sat < 0.40 || f_sat > 0.45) {
+            failures.push(`Saturation factor = ${f_sat.toFixed(4)} (expected 0.40-0.45)`);
+        } else {
+            console.log('✓ Saturation factor within expected range');
+        }
+
+        // Check 3: Solid angle
+        if (Omega < 0.45 || Omega > 0.55) {
+            failures.push(`Solid angle Ω = ${Omega.toFixed(4)} sr (expected 0.45-0.55 sr)`);
+        } else {
+            console.log('✓ Solid angle within expected range');
+        }
+
+        // Check 4: Geometric efficiency
+        const eta_expected_min = 0.035;
+        const eta_expected_max = 0.045;
+        if (eta < eta_expected_min || eta > eta_expected_max) {
+            failures.push(`Geometric efficiency η = ${eta.toFixed(6)} (expected 0.035-0.045)`);
+        } else {
+            console.log('✓ Geometric efficiency within expected range');
+        }
+
+        // Check 5: Flux at target
+        const flux_min = 1e9;
+        const flux_max = 1e10;
+        if (flux < flux_min || flux > flux_max) {
+            failures.push(`Flux at target = ${flux.toExponential(3)} n/cm²/s (expected 1e9-1e10)`);
+        } else {
+            console.log('✓ Flux at target within expected range');
+        }
+
+        // Check 6: Activity at EOB (tens to low hundreds of GBq)
+        const A_EOB_GBq = A_EOB / 1e9;
+        if (A_EOB_GBq < 10 || A_EOB_GBq > 500) {
+            failures.push(`Activity at EOB = ${A_EOB_GBq.toFixed(2)} GBq (expected 10-500 GBq)`);
+        } else {
+            console.log('✓ Activity at EOB within expected range');
+        }
+
+        // Check 7: Delivered activity (~90% of EOB)
+        const delivery_fraction = A_delivered / A_EOB;
+        if (delivery_fraction < 0.85 || delivery_fraction > 0.95) {
+            failures.push(`Delivery fraction = ${(delivery_fraction * 100).toFixed(1)}% (expected ~90%)`);
+        } else {
+            console.log('✓ Delivery fraction within expected range');
+        }
+
+        // Check 8: Thermal derating (should not trigger)
+        const coolantFlow = this.getParam('coolantFlow', 0.5);
+        const heatCapacity = this.getParam('heatCapacity', 4180);
+        const beamEnergy = this.getParam('beamEnergy', 10);
+        const beamCurrent = this.getParam('beamCurrent', 1e-6);
+        const particleCharge = this.getParam('particleCharge', 1);
+        const sourceType = document.getElementById('sourceType').value;
+        
+        if (sourceType === 'beam') {
+            const N_dot = Model.particleRate(beamCurrent, particleCharge);
+            const P = Model.beamPower(N_dot, beamEnergy);
+            const deltaT = Model.temperatureRise(P, coolantFlow, heatCapacity);
+            const deltaTMax = this.getParam('deltaTMax', 40);
+            const f_T = Model.thermalDerating(deltaT, deltaTMax);
+            if (f_T < 1.0) {
+                failures.push(`Thermal derating triggered: f_T = ${f_T.toFixed(4)} (should be 1.0)`);
+            } else {
+                console.log('✓ No thermal derating (as expected)');
+            }
+        } else {
+            console.log('✓ No thermal derating (neutron source)');
+        }
+
+        // Check 9: Damage derating (should not trigger)
+        const dpaRate = this.getParam('dpaRate', 1e-7);
+        const t_irr_seconds = irradiationTimeDays * 86400;
+        const dpa_accumulated = dpaRate * t_irr_seconds;
+        const dpaLimit = this.getParam('dpaLimit', 0.5);
+        const t_damage = Model.damageTimeLimit(dpaLimit, dpaRate);
+        const f_D = Model.damageDerating(t_irr_seconds, t_damage);
+        if (f_D < 1.0) {
+            failures.push(`Damage derating triggered: f_D = ${f_D.toFixed(4)} (should be 1.0)`);
+        } else {
+            console.log('✓ No damage derating (as expected)');
+        }
+
+        // Print summary
+        console.log('\n========================================');
+        if (failures.length === 0) {
+            console.log('Lu-177 Validation: PASS');
+            console.log('All checks passed within expected ranges.');
+        } else {
+            console.log('Lu-177 Validation: FAIL');
+            console.log('\nFailed checks:');
+            failures.forEach((failure, idx) => {
+                console.log(`${idx + 1}. ${failure}`);
+            });
+        }
+        console.log('========================================\n');
     }
 };
 
