@@ -1,7 +1,7 @@
 /**
  * advancedPhysics.js
  * 
- * Advanced Physics Features Module (v2.0.0)
+ * Advanced Physics Features Module (v2.1.1)
  * 
  * This module implements advanced physics features while maintaining:
  * - Deterministic behavior
@@ -87,6 +87,8 @@ const AdvancedPhysics = {
      * @param {number} t_irr - Irradiation time (s)
      * @param {number} dt - Time step for integration (s, default: adaptive)
      * @returns {number} Atoms at EOB N_EOB
+     * 
+     * Note: Trapezoidal integration improves accuracy for duty cycles and step flux profiles.
      */
     atomsAtEOBWithTimeDependentFlux: function(N_target, sigma_cm2, fluxProfileType, fluxParams, f_shield, lambda, t_irr, dt) {
         if (N_target < 0 || sigma_cm2 < 0 || f_shield < 0 || lambda < 0 || t_irr < 0) {
@@ -100,10 +102,20 @@ const AdvancedPhysics = {
 
         let N_EOB = 0;
 
-        // Numerical integration: N(t) = ∫₀^t R(τ) e^{-λ(t-τ)} dτ
-        for (let i = 0; i < steps; i++) {
-            const tau = i * adaptive_dt;
-            const current_dt = (i === steps - 1) ? final_dt : adaptive_dt;
+        // Numerical integration using trapezoidal rule: N(t) = ∫₀^t R(τ) e^{-λ(t-τ)} dτ
+        // Trapezoidal rule: ∫ f(τ) dτ ≈ 0.5 × (f(τ) + f(τ+dt)) × dt
+        // This improves accuracy for duty cycles and step flux profiles compared to rectangular rule
+        
+        // First point (tau = 0)
+        let tau_prev = 0;
+        let phi_prev = this.timeDependentFlux(fluxProfileType, tau_prev, fluxParams);
+        let R_prev = Model.reactionRate(N_target, sigma_cm2, phi_prev, f_shield);
+        let decay_factor_prev = Math.exp(-lambda * (t_irr - tau_prev));
+        let integrand_prev = R_prev * decay_factor_prev;
+
+        for (let i = 1; i <= steps; i++) {
+            const tau = (i === steps) ? t_irr : i * adaptive_dt;
+            const current_dt = (i === steps) ? final_dt : adaptive_dt;
 
             // Flux at time τ
             const phi_tau = this.timeDependentFlux(fluxProfileType, tau, fluxParams);
@@ -113,9 +125,16 @@ const AdvancedPhysics = {
 
             // Decay factor: e^{-λ(t_irr - τ)}
             const decay_factor = Math.exp(-lambda * (t_irr - tau));
+            
+            // Integrand at time τ
+            const integrand = R_tau * decay_factor;
 
-            // Contribution to N_EOB
-            N_EOB += R_tau * decay_factor * current_dt;
+            // Trapezoidal rule: 0.5 × (f(τ_prev) + f(τ)) × dt
+            N_EOB += 0.5 * (integrand_prev + integrand) * current_dt;
+
+            // Update for next iteration
+            tau_prev = tau;
+            integrand_prev = integrand;
         }
 
         return N_EOB;
@@ -167,21 +186,35 @@ const AdvancedPhysics = {
      * Calculate production yield with spatial flux distribution
      * Integrates production over target area
      * 
+     * IMPORTANT GEOMETRY ASSUMPTION:
+     * Spatial flux integration assumes a circular, radially symmetric target.
+     * Rectangular or irregular geometries are not supported in v2.x.
+     * 
      * @param {number} N_target_density - Target atom density (atoms/cm^3)
      * @param {number} sigma_cm2 - Cross-section (cm^2)
      * @param {string} fluxProfileType - Spatial flux profile type
      * @param {Object} fluxParams - Flux profile parameters
      * @param {number} f_shield - Self-shielding factor
-     * @param {number} targetRadius - Target radius (cm)
+     * @param {number} targetRadius - Target radius (cm) - ASSUMES CIRCULAR TARGET
      * @param {number} targetThickness - Target thickness (cm)
      * @param {number} lambda - Decay constant (s^-1)
      * @param {number} t_irr - Irradiation time (s)
      * @param {number} dr - Radial step for integration (cm, default: adaptive)
+     * @param {string} geometryType - Geometry type (default: 'circular') - for validation only
      * @returns {number} Total atoms at EOB N_EOB
+     * 
+     * Note: Spatial flux integration assumes a circular, radially symmetric target.
+     *       Rectangular or irregular geometries are not supported in v2.x.
      */
-    atomsAtEOBWithSpatialFlux: function(N_target_density, sigma_cm2, fluxProfileType, fluxParams, f_shield, targetRadius, targetThickness, lambda, t_irr, dr) {
+    atomsAtEOBWithSpatialFlux: function(N_target_density, sigma_cm2, fluxProfileType, fluxParams, f_shield, targetRadius, targetThickness, lambda, t_irr, dr, geometryType) {
         if (N_target_density < 0 || sigma_cm2 < 0 || f_shield < 0 || targetRadius <= 0 || targetThickness <= 0 || lambda < 0 || t_irr < 0) {
             throw new Error('All parameters must be non-negative, radius and thickness must be positive');
+        }
+
+        // Runtime validation: check geometry type
+        if (geometryType !== undefined && geometryType !== 'circular') {
+            throw new Error(`Spatial flux integration only supports circular targets (geometryType='circular'). ` +
+                          `Received: '${geometryType}'. Rectangular or irregular geometries are not supported in v2.x.`);
         }
 
         // Adaptive radial step
@@ -229,45 +262,65 @@ const AdvancedPhysics = {
      * @param {number} N_target - Number of target atoms
      * @param {number} sigma_thermal_cm2 - Thermal cross-section (cm^2)
      * @param {number} phi_thermal - Thermal flux (cm^-2 s^-1)
-     * @param {number} resonance_integral - Resonance integral I_res (cm^2, typically in barns × eV)
+     * @param {number} resonanceIntegral_cm2 - Resonance integral I_res (cm^2, effective)
+     *   IMPORTANT: Input must be in cm² (effective resonance integral).
+     *   This is the effective resonance integral normalized to epithermal flux:
+     *   I_eff = ∫σ(E)(1/E)dE normalized to epithermal flux spectrum.
+     *   Any energy normalization must be done upstream before calling this function.
+     *   NOT barns × eV - if you have barns × eV, convert upstream.
      * @param {number} phi_epithermal - Epithermal flux (cm^-2 s^-1)
      * @param {number} f_shield - Self-shielding factor
      * @returns {number} Reaction rate R (reactions/s)
      * 
-     * Formula: R = N × (σ_thermal × φ_thermal + I_res × φ_epithermal) × f_shield
+     * Formula: R = N × (σ_thermal × φ_thermal + I_res_eff × φ_epithermal) × f_shield
      * Units: [reactions/s] = [1] × ([cm^2] × [cm^-2 s^-1] + [cm^2] × [cm^-2 s^-1]) × [1]
      * 
-     * Note: Resonance integral I_res is typically given in barns × eV.
-     *       For calculation, convert to cm^2: I_res_cm2 = I_res_barns_eV × 1e-24
+     * Note: Resonance integral input is expected in cm² (effective), not barns·eV.
+     *       Any energy normalization must be done upstream.
      */
-    reactionRateWithEpithermal: function(N_target, sigma_thermal_cm2, phi_thermal, resonance_integral, phi_epithermal, f_shield) {
-        if (N_target < 0 || sigma_thermal_cm2 < 0 || phi_thermal < 0 || resonance_integral < 0 || phi_epithermal < 0 || f_shield < 0) {
+    reactionRateWithEpithermal: function(N_target, sigma_thermal_cm2, phi_thermal, resonanceIntegral_cm2, phi_epithermal, f_shield) {
+        if (N_target < 0 || sigma_thermal_cm2 < 0 || phi_thermal < 0 || resonanceIntegral_cm2 < 0 || phi_epithermal < 0 || f_shield < 0) {
             throw new Error('All parameters must be non-negative');
+        }
+
+        // Runtime validation: warn if resonance integral seems too large (possible unit error)
+        // Typical resonance integrals are 1e-24 to 1e-22 cm² (1-100 barns effective)
+        // If > 1e-20 cm², likely unit error (e.g., barns × eV entered as cm²)
+        if (resonanceIntegral_cm2 > 1e-20) {
+            console.warn(`WARNING: Resonance integral ${resonanceIntegral_cm2.toExponential(2)} cm² seems unusually large. ` +
+                        `Check units - expected input is cm² (effective), not barns × eV. ` +
+                        `Typical values: 1e-24 to 1e-22 cm² (1-100 barns effective).`);
         }
 
         // Thermal contribution
         const R_thermal = N_target * sigma_thermal_cm2 * phi_thermal * f_shield;
 
         // Epithermal contribution
-        // Note: resonance_integral should be in cm^2 (convert from barns × eV if needed)
-        const R_epithermal = N_target * resonance_integral * phi_epithermal * f_shield;
+        // Note: resonanceIntegral_cm2 is already in cm² (effective)
+        const R_epithermal = N_target * resonanceIntegral_cm2 * phi_epithermal * f_shield;
 
         return R_thermal + R_epithermal;
     },
 
     /**
-     * Convert resonance integral from barns × eV to cm^2
+     * Convert resonance integral from barns × eV to cm^2 (effective)
      * 
      * @param {number} I_res_barns_eV - Resonance integral (barns × eV)
-     * @returns {number} Resonance integral (cm^2)
+     * @returns {number} Resonance integral (cm^2, effective)
      * 
-     * Note: This is a unit conversion. The actual value depends on the neutron spectrum.
+     * Note: This conversion assumes standard 1/E epithermal spectrum normalization.
+     *       The eV factor is absorbed in the flux normalization.
+     *       For use in reactionRateWithEpithermal, the result is in cm² (effective).
+     *       
+     * WARNING: This function is provided for convenience but the preferred approach
+     *         is to provide resonance integrals already converted to cm² (effective)
+     *         directly to reactionRateWithEpithermal.
      */
     convertResonanceIntegral: function(I_res_barns_eV) {
         // 1 barn = 1e-24 cm^2
-        // For resonance integrals, the eV factor is typically absorbed in the flux normalization
+        // For resonance integrals, the eV factor is absorbed in the flux normalization
         // This conversion assumes standard 1/E epithermal spectrum
-        return I_res_barns_eV * 1e-24; // cm^2
+        return I_res_barns_eV * 1e-24; // cm^2 (effective)
     },
 
     // ============================================================================

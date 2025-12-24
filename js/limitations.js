@@ -65,14 +65,14 @@ const ModelLimitations = {
         },
         {
             id: 'spatial_flux_gradients',
-            title: 'Spatial Flux Gradients Neglected',
-            description: 'The model assumes uniform flux distribution across the target area. For large targets or off-axis sources, flux can vary by 2-10× across the target.',
+            title: 'Spatial Flux Gradients - Circular Geometry Only',
+            description: 'Spatial flux integration assumes a circular, radially symmetric target. Rectangular or irregular geometries are not supported in v2.x. For large targets or off-axis sources, flux can vary by 2-10× across the target.',
             severity: 'moderate',
-            impact: 'Production yield accuracy may be affected for large targets. Specific activity uniformity not modeled.',
+            impact: 'Production yield accuracy may be affected for large targets. Specific activity uniformity not modeled. Non-circular geometries are not supported.',
             category: 'geometry',
-            affects: ['large_targets', 'off_axis_sources'],
-            status: 'Known – Not Implemented',
-            estimated_impact_magnitude: '2-10× flux variation for large targets (r > 5 cm) or off-axis sources (d/r < 2). Yield accuracy ±20-50% for non-uniform flux cases.'
+            affects: ['large_targets', 'off_axis_sources', 'rectangular_targets'],
+            status: 'Known – Circular Geometry Only',
+            estimated_impact_magnitude: '2-10× flux variation for large targets (r > 5 cm) or off-axis sources (d/r < 2). Yield accuracy ±20-50% for non-uniform flux cases. Rectangular or irregular geometries not supported.'
         },
         {
             id: 'time_dependent_flux',

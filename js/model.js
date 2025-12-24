@@ -540,19 +540,45 @@ const Model = {
 
     /**
      * Matrix exponential method for larger decay chains
-     * Uses Padé approximation for matrix exponential
+     * Uses explicit Euler method for matrix exponential
      * 
      * @param {Array<number>} N0 - Initial atom numbers
      * @param {Array<Array<number>>} decayMatrix - Decay matrix
      * @param {number} t - Time (s)
      * @returns {Array<number>} Atom numbers at time t
+     * 
+     * Note: Matrix exponential solved via explicit Euler method.
+     *       Stable for planning-grade decay chains.
+     *       Not suitable for stiff systems without timestep refinement.
+     *       Numerical stability guard ensures λ_max × dt ≤ 0.2.
      */
     batemanMatrixExponential: function(N0, decayMatrix, t) {
         const n = N0.length;
         
-        // For simplicity, use small time steps and Euler method
-        // More sophisticated: Padé approximation or scaling and squaring
-        const dt = Math.min(t / 1000, 0.1); // Adaptive time step
+        // Find maximum decay constant for stability check
+        let lambda_max = 0;
+        for (let i = 0; i < n; i++) {
+            const lambda_i = -decayMatrix[i][i]; // Decay constant (positive)
+            if (lambda_i > lambda_max) {
+                lambda_max = lambda_i;
+            }
+        }
+        
+        // Initial adaptive time step
+        let dt = Math.min(t / 1000, 0.1);
+        
+        // Numerical stability guard: ensure λ_max × dt ≤ 0.2
+        // For stiff systems (large decay constant differences), reduce timestep
+        const STABILITY_THRESHOLD = 0.2;
+        if (lambda_max > 0 && lambda_max * dt > STABILITY_THRESHOLD) {
+            const original_dt = dt;
+            dt = STABILITY_THRESHOLD / lambda_max;
+            if (typeof console !== 'undefined' && console.warn) {
+                console.warn(`Matrix exponential stability guard: Reduced timestep from ${original_dt.toExponential(2)} s to ${dt.toExponential(2)} s ` +
+                            `(λ_max = ${lambda_max.toExponential(2)} s⁻¹, λ_max × dt = ${(lambda_max * dt).toFixed(3)})`);
+            }
+        }
+        
         const steps = Math.ceil(t / dt);
         const final_dt = t - (steps - 1) * dt;
 
