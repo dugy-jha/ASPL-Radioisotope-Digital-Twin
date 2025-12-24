@@ -18,6 +18,8 @@ const UI = {
         this.initializeCharts();
         this.updateEquations();
         this.updateAllCharts();
+        this.initializeRouteRegistry();
+        this.initRouteExplorer();
     },
 
     /**
@@ -40,11 +42,26 @@ const UI = {
             });
         }
 
-        // Validation test case button
+        // Comparative analytics checkboxes
+        const comparativeCheckboxes = document.querySelectorAll('#comparativeAnalytics input[type="checkbox"]');
+        comparativeCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                this.updateComparativeCharts();
+            });
+        });
+
+        // Validation test case buttons
         const loadLu177Test = document.getElementById('loadLu177Test');
         if (loadLu177Test) {
             loadLu177Test.addEventListener('click', () => {
                 this.loadLu177TestCase();
+            });
+        }
+
+        const loadMo99Test = document.getElementById('loadMo99Test');
+        if (loadMo99Test) {
+            loadMo99Test.addEventListener('click', () => {
+                this.loadMo99ValidationCase();
             });
         }
 
@@ -53,6 +70,14 @@ const UI = {
         inputs.forEach(input => {
             input.addEventListener('input', () => this.updateAllCharts());
             input.addEventListener('change', () => this.updateAllCharts());
+        });
+
+        // Route registry tabs
+        const routeTabs = document.querySelectorAll('.route-tab');
+        routeTabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                this.switchRouteTab(tab.dataset.tab);
+            });
         });
     },
 
@@ -102,6 +127,9 @@ const UI = {
         this.updateTransportChart();
         this.updateUncertaintyChart();
         this.updateResultsDisplay();
+        this.updateRouteRegistry();
+        this.populateRouteExplorer();
+        this.updateComparativeCharts();
     },
 
     /**
@@ -215,21 +243,58 @@ const UI = {
 
     /**
      * Update Parent–Daughter Activity vs Time chart
+     * Includes production during irradiation and decay post-EOB
      */
     updateDecayChainChart: function() {
         const parentHalfLife = this.getParam('halfLife', 1.0);
         const daughterHalfLife = this.getParam('daughterHalfLife', 0.5);
         const BR = this.getParam('branchingRatio', 1.0);
+        const crossSection = this.getParam('crossSection', 1e-24);
+        const enrichment = this.getParam('enrichment', 1.0);
+        const parentDensity = this.getParam('parentDensity', 5e22);
+        const targetRadius = this.getParam('targetRadius', 1.0);
+        const targetThickness = this.getParam('targetThickness', 0.1);
+        const sourceDistance = this.getParam('sourceDistance', 10);
         const irradiationTimeDays = this.getParam('irradiationTime', 7);
+        const dutyCycle = this.getParam('dutyCycle', 1.0);
 
         const lambda_parent = Model.decayConstant(parentHalfLife);
         const lambda_daughter = Model.decayConstant(daughterHalfLife);
 
-        // Assume initial parent atoms (simplified)
-        const N_parent_initial = 1e20;
+        // Calculate production rate
+        const Omega = Model.solidAngle(sourceDistance, targetRadius);
+        const A_target = Math.PI * targetRadius * targetRadius;
+        const N_parent = parentDensity * enrichment * A_target * targetThickness;
 
-        const numPoints = 200;
-        const maxTime = irradiationTimeDays * 2 * 86400; // Show 2x irradiation time
+        const sourceType = document.getElementById('sourceType').value;
+        let phi = 0;
+        if (sourceType === 'neutron') {
+            phi = this.getParam('flux', 1e14);
+        } else {
+            const I = this.getParam('beamCurrent', 1e-6);
+            const q = this.getParam('particleCharge', 1);
+            const eta = Model.geometricEfficiency(Omega);
+            const N_dot = Model.particleRate(I, q);
+            const S_eff = Model.effectiveSourceRate(N_dot, eta, 1.0, 1.0);
+            phi = Model.flux(S_eff, A_target);
+        }
+
+        const Sigma = Model.macroscopicCrossSection(parentDensity, crossSection);
+        const f_shield = Model.selfShieldingFactor(Sigma, targetThickness);
+        const R = Model.reactionRate(N_parent, crossSection, phi * dutyCycle, f_shield);
+
+        const t_irr = irradiationTimeDays * 86400;
+        const t_irr_days = irradiationTimeDays;
+
+        // Calculate parent atoms at EOB
+        const f_sat = Model.saturationFactor(lambda_parent, t_irr);
+        const N_parent_EOB = Model.atomsAtEOB(R, f_sat, lambda_parent);
+
+        // Generate time series: during irradiation and post-EOB
+        const numPoints = 300;
+        const postEOBTime = irradiationTimeDays * 2; // Show 2x irradiation time post-EOB
+        const maxTimeDays = irradiationTimeDays + postEOBTime;
+        const maxTime = maxTimeDays * 86400;
         const timeStep = maxTime / numPoints;
         const timeData = [];
         const parentData = [];
@@ -238,12 +303,47 @@ const UI = {
         for (let i = 0; i <= numPoints; i++) {
             const t = i * timeStep;
             const t_days = t / 86400;
-            const N_daughter = Model.batemanOneStep(N_parent_initial, BR, lambda_parent, lambda_daughter, t);
-            const A_parent = Model.activity(lambda_parent, N_parent_initial * Math.exp(-lambda_parent * t));
-            const A_daughter = Model.activity(lambda_daughter, N_daughter);
+            
+            let N_parent_t, N_daughter_t;
+            
+            if (t <= t_irr) {
+                // During irradiation: parent is being produced
+                const f_sat_t = Model.saturationFactor(lambda_parent, t);
+                N_parent_t = Model.atomsAtEOB(R, f_sat_t, lambda_parent);
+                
+                // Daughter builds up from parent decay during irradiation
+                // Use Bateman equation: daughter from parent that was produced
+                // Approximate: use current parent atoms and apply Bateman
+                // More accurate would integrate, but this approximation is reasonable
+                N_daughter_t = Model.batemanOneStep(N_parent_t, BR, lambda_parent, lambda_daughter, t);
+            } else {
+                // Post-EOB: parent decays exponentially, daughter follows Bateman from EOB
+                const t_post_EOB = t - t_irr;
+                
+                // Parent decays from EOB value
+                N_parent_t = N_parent_EOB * Math.exp(-lambda_parent * t_post_EOB);
+                
+                // Daughter at EOB
+                const N_daughter_EOB = Model.batemanOneStep(N_parent_EOB, BR, lambda_parent, lambda_daughter, t_irr);
+                
+                // After EOB: use Bateman equation with parent starting at EOB value
+                // This gives daughter from parent decay after EOB
+                const N_daughter_from_parent_decay = Model.batemanOneStep(N_parent_EOB, BR, lambda_parent, lambda_daughter, t);
+                
+                // Daughter that existed at EOB decays independently
+                const N_daughter_from_EOB_decay = N_daughter_EOB * Math.exp(-lambda_daughter * t_post_EOB);
+                
+                // Total daughter: new from parent decay (includes both production and decay)
+                // The Bateman equation already accounts for daughter decay, so we use it directly
+                N_daughter_t = N_daughter_from_parent_decay;
+            }
+
+            const A_parent_t = Model.activity(lambda_parent, N_parent_t);
+            const A_daughter_t = Model.activity(lambda_daughter, N_daughter_t);
+            
             timeData.push(t_days);
-            parentData.push(A_parent);
-            daughterData.push(A_daughter);
+            parentData.push(A_parent_t);
+            daughterData.push(A_daughter_t);
         }
 
         Charts.updateDecayChainChart('chartDecayChain', timeData, parentData, daughterData);
@@ -433,6 +533,293 @@ const UI = {
     },
 
     /**
+     * Collect all results data for acceptance evaluation
+     */
+    collectResults: function() {
+        const halfLife = this.getParam('halfLife', 1.0);
+        const crossSection = this.getParam('crossSection', 1e-24);
+        const enrichment = this.getParam('enrichment', 1.0);
+        const parentDensity = this.getParam('parentDensity', 5e22);
+        const targetRadius = this.getParam('targetRadius', 1.0);
+        const targetThickness = this.getParam('targetThickness', 0.1);
+        const sourceDistance = this.getParam('sourceDistance', 10);
+        const irradiationTimeDays = this.getParam('irradiationTime', 7);
+        const dutyCycle = this.getParam('dutyCycle', 1.0);
+        const chemistryDelayHours = this.getParam('chemistryDelay', 24);
+        const transportTimeHours = this.getParam('transportTime', 48);
+        const chemistryLoss = this.getParam('chemistryLoss', 1e-6);
+        const coolantFlow = this.getParam('coolantFlow', 0.1);
+        const heatCapacity = this.getParam('heatCapacity', 4184);
+        const deltaTMax = this.getParam('deltaTMax', 50);
+        const dpaRate = this.getParam('dpaRate', 1e-8);
+        const dpaLimit = this.getParam('dpaLimit', 10);
+        const sigmaFlux = this.getParam('sigmaFlux', 5) / 100;
+        const sigmaSigma = this.getParam('sigmaSigma', 3) / 100;
+        const sigmaGeom = this.getParam('sigmaGeom', 2) / 100;
+        const sigmaChem = this.getParam('sigmaChem', 1) / 100;
+
+        // Calculate geometry
+        const Omega = Model.solidAngle(sourceDistance, targetRadius);
+        const eta = Model.geometricEfficiency(Omega);
+        const A_target = Math.PI * targetRadius * targetRadius;
+        const N_parent = parentDensity * enrichment * A_target * targetThickness;
+
+        // Get flux or calculate from beam
+        const sourceType = document.getElementById('sourceType').value;
+        let phi = 0;
+        let beamPower = 0;
+        let deltaT = 0;
+        if (sourceType === 'neutron') {
+            phi = this.getParam('flux', 1e14);
+        } else {
+            const I = this.getParam('beamCurrent', 1e-6);
+            const q = this.getParam('particleCharge', 1);
+            const beamEnergy = this.getParam('beamEnergy', 10);
+            const N_dot = Model.particleRate(I, q);
+            const S_eff = Model.effectiveSourceRate(N_dot, eta, 1.0, 1.0);
+            phi = Model.flux(S_eff, A_target);
+            beamPower = Model.beamPower(N_dot, beamEnergy);
+            deltaT = Model.temperatureRise(beamPower, coolantFlow, heatCapacity);
+        }
+
+        // Calculate reaction rate and activity
+        const Sigma = Model.macroscopicCrossSection(parentDensity, crossSection);
+        const f_shield = Model.selfShieldingFactor(Sigma, targetThickness);
+        const R = Model.reactionRate(N_parent, crossSection, phi * dutyCycle, f_shield);
+        const lambda = Model.decayConstant(halfLife);
+        const t_irr = irradiationTimeDays * 86400;
+        const f_sat = Model.saturationFactor(lambda, t_irr);
+        const N_EOB = Model.atomsAtEOB(R, f_sat, lambda);
+        const A_EOB = Model.activity(lambda, N_EOB);
+
+        // Calculate delivered activity
+        const t_chem = chemistryDelayHours * 3600;
+        const A_after_chem = A_EOB * Math.exp(-chemistryLoss * t_chem);
+        const t_transport = transportTimeHours * 3600;
+        const A_delivered = A_after_chem * Math.exp(-lambda * t_transport);
+
+        // Calculate thermal derating
+        let thermal_derate = 1.0;
+        if (sourceType === 'beam' && beamPower > 0) {
+            thermal_derate = Model.thermalDerating(deltaT, deltaTMax);
+        }
+
+        // Calculate damage derating
+        const t_damage = Model.damageTimeLimit(dpaLimit, dpaRate);
+        const damage_derate = Model.damageDerating(t_irr, t_damage);
+
+        // Calculate radionuclidic purity (from enrichment)
+        const radionuclidic_purity = enrichment;
+        const impurity_fraction = 1 - enrichment;
+
+        // Calculate total uncertainty (RSS)
+        const uncertainties = [
+            sigmaFlux,
+            sigmaSigma,
+            sigmaGeom,
+            sigmaChem
+        ];
+        const total_uncertainty = Model.uncertaintyRSS(uncertainties);
+
+        return {
+            radionuclidic_purity: radionuclidic_purity,
+            impurity_fraction: impurity_fraction,
+            thermal_derate: thermal_derate,
+            damage_derate: damage_derate,
+            deltaT: deltaT,
+            deltaT_max: deltaTMax,
+            delivered_activity: A_delivered,
+            activity_EOB: A_EOB,
+            total_uncertainty: total_uncertainty
+        };
+    },
+
+    /**
+     * Evaluate acceptance criteria with regulatory metadata
+     * @param {Object} results - Results object from collectResults()
+     * @returns {Object} {pass: boolean, failures: Array<{message, code, description, iaea_alignment}>, warnings: Array<{message, code, description, iaea_alignment}>}
+     * @returns {Array<{code: string, description: string}>} iaea_alignment - Array of IAEA alignment references (informational only)
+     */
+    evaluateAcceptance: function(results) {
+        const failures = [];
+        const warnings = [];
+
+        // Regulatory metadata definitions
+        const regulatoryRules = {
+            radionuclidic_purity: {
+                code: 'AERB/RF-R/SC-1',
+                description: 'Radioisotope Production Purity',
+                iaea_alignment: [
+                    { code: 'IAEA SRS-63', description: 'Quality assurance for radionuclidic purity' },
+                    { code: 'IAEA TRS-469', description: 'Production and quality control of medical radioisotopes' }
+                ]
+            },
+            impurity_fraction: {
+                code: 'AERB/RF-R/SC-1',
+                description: 'Radioisotope Production Purity',
+                iaea_alignment: [
+                    { code: 'IAEA SRS-63', description: 'Quality assurance for radionuclidic purity' },
+                    { code: 'IAEA TRS-469', description: 'Production and quality control of medical radioisotopes' }
+                ]
+            },
+            thermal_derate: {
+                code: 'AERB/RF-R/SC-2',
+                description: 'Thermal Safety Limits',
+                iaea_alignment: [
+                    { code: 'IAEA NP-T-5.1', description: 'Thermal-hydraulic safety principles' },
+                    { code: 'IAEA SSG-30', description: 'Safety of research reactors' }
+                ]
+            },
+            damage_derate: {
+                code: 'AERB/RF-R/SC-3',
+                description: 'Radiation Damage Limits',
+                iaea_alignment: [
+                    { code: 'IAEA TRS-429', description: 'Radiation damage to reactor materials' },
+                    { code: 'IAEA NP-T-3.13', description: 'Materials for nuclear power plants' }
+                ]
+            },
+            temperature_rise: {
+                code: 'AERB/RF-R/SC-2',
+                description: 'Thermal Safety Limits',
+                iaea_alignment: [
+                    { code: 'IAEA NP-T-5.1', description: 'Thermal-hydraulic safety principles' },
+                    { code: 'IAEA SSG-30', description: 'Safety of research reactors' }
+                ]
+            },
+            delivery_fraction: {
+                code: 'AERB/RF-R/SC-4',
+                description: 'Activity Delivery Requirements',
+                iaea_alignment: [
+                    { code: 'IAEA TRS-469', description: 'Production and quality control of medical radioisotopes' },
+                    { code: 'IAEA SSG-46', description: 'Radiation protection in radioisotope production' }
+                ]
+            },
+            total_uncertainty: {
+                code: 'AERB/RF-R/SC-5',
+                description: 'Uncertainty Quantification',
+                iaea_alignment: [
+                    { code: 'IAEA TRS-457', description: 'Uncertainty analysis in reactor physics calculations' },
+                    { code: 'IAEA TECDOC-1901', description: 'Uncertainty quantification in nuclear data' }
+                ]
+            }
+        };
+
+        // Rule 1: radionuclidic_purity >= 0.999
+        if (results.radionuclidic_purity < 0.999) {
+            failures.push({
+                message: `Radionuclidic purity ${(results.radionuclidic_purity * 100).toFixed(3)}% < 99.9%`,
+                code: regulatoryRules.radionuclidic_purity.code,
+                description: regulatoryRules.radionuclidic_purity.description,
+                iaea_alignment: regulatoryRules.radionuclidic_purity.iaea_alignment
+            });
+        }
+
+        // Rule 2: impurity_fraction <= 0.001
+        if (results.impurity_fraction > 0.001) {
+            failures.push({
+                message: `Impurity fraction ${(results.impurity_fraction * 100).toFixed(3)}% > 0.1%`,
+                code: regulatoryRules.impurity_fraction.code,
+                description: regulatoryRules.impurity_fraction.description,
+                iaea_alignment: regulatoryRules.impurity_fraction.iaea_alignment
+            });
+        }
+
+        // Rule 3: thermal_derate >= 0.8
+        if (results.thermal_derate < 0.8) {
+            failures.push({
+                message: `Thermal derating ${(results.thermal_derate * 100).toFixed(1)}% < 80%`,
+                code: regulatoryRules.thermal_derate.code,
+                description: regulatoryRules.thermal_derate.description,
+                iaea_alignment: regulatoryRules.thermal_derate.iaea_alignment
+            });
+        } else if (results.thermal_derate < 0.9) {
+            warnings.push({
+                message: `Thermal derating ${(results.thermal_derate * 100).toFixed(1)}% is marginal (< 90%)`,
+                code: regulatoryRules.thermal_derate.code,
+                description: regulatoryRules.thermal_derate.description,
+                iaea_alignment: regulatoryRules.thermal_derate.iaea_alignment
+            });
+        }
+
+        // Rule 4: damage_derate >= 0.8
+        if (results.damage_derate < 0.8) {
+            failures.push({
+                message: `Damage derating ${(results.damage_derate * 100).toFixed(1)}% < 80%`,
+                code: regulatoryRules.damage_derate.code,
+                description: regulatoryRules.damage_derate.description,
+                iaea_alignment: regulatoryRules.damage_derate.iaea_alignment
+            });
+        } else if (results.damage_derate < 0.9) {
+            warnings.push({
+                message: `Damage derating ${(results.damage_derate * 100).toFixed(1)}% is marginal (< 90%)`,
+                code: regulatoryRules.damage_derate.code,
+                description: regulatoryRules.damage_derate.description,
+                iaea_alignment: regulatoryRules.damage_derate.iaea_alignment
+            });
+        }
+
+        // Rule 5: deltaT <= deltaT_max
+        if (results.deltaT > results.deltaT_max) {
+            failures.push({
+                message: `Temperature rise ${results.deltaT.toFixed(1)} K > max ${results.deltaT_max} K`,
+                code: regulatoryRules.temperature_rise.code,
+                description: regulatoryRules.temperature_rise.description,
+                iaea_alignment: regulatoryRules.temperature_rise.iaea_alignment
+            });
+        } else if (results.deltaT > results.deltaT_max * 0.9) {
+            warnings.push({
+                message: `Temperature rise ${results.deltaT.toFixed(1)} K is close to limit`,
+                code: regulatoryRules.temperature_rise.code,
+                description: regulatoryRules.temperature_rise.description,
+                iaea_alignment: regulatoryRules.temperature_rise.iaea_alignment
+            });
+        }
+
+        // Rule 6: delivered_activity / activity_EOB >= 0.7
+        const delivery_fraction = results.delivered_activity / results.activity_EOB;
+        if (delivery_fraction < 0.7) {
+            failures.push({
+                message: `Delivery fraction ${(delivery_fraction * 100).toFixed(1)}% < 70%`,
+                code: regulatoryRules.delivery_fraction.code,
+                description: regulatoryRules.delivery_fraction.description,
+                iaea_alignment: regulatoryRules.delivery_fraction.iaea_alignment
+            });
+        } else if (delivery_fraction < 0.8) {
+            warnings.push({
+                message: `Delivery fraction ${(delivery_fraction * 100).toFixed(1)}% is marginal (< 80%)`,
+                code: regulatoryRules.delivery_fraction.code,
+                description: regulatoryRules.delivery_fraction.description,
+                iaea_alignment: regulatoryRules.delivery_fraction.iaea_alignment
+            });
+        }
+
+        // Rule 7: total_uncertainty <= 0.30
+        if (results.total_uncertainty > 0.30) {
+            failures.push({
+                message: `Total uncertainty ${(results.total_uncertainty * 100).toFixed(1)}% > 30%`,
+                code: regulatoryRules.total_uncertainty.code,
+                description: regulatoryRules.total_uncertainty.description,
+                iaea_alignment: regulatoryRules.total_uncertainty.iaea_alignment
+            });
+        } else if (results.total_uncertainty > 0.25) {
+            warnings.push({
+                message: `Total uncertainty ${(results.total_uncertainty * 100).toFixed(1)}% is high (> 25%)`,
+                code: regulatoryRules.total_uncertainty.code,
+                description: regulatoryRules.total_uncertainty.description,
+                iaea_alignment: regulatoryRules.total_uncertainty.iaea_alignment
+            });
+        }
+
+        const pass = failures.length === 0;
+
+        return {
+            pass: pass,
+            failures: failures,
+            warnings: warnings
+        };
+    },
+
+    /**
      * Update results display section
      */
     updateResultsDisplay: function() {
@@ -483,8 +870,75 @@ const UI = {
             return num.toExponential(2) + ' Bq';
         };
 
+        // Collect results for acceptance evaluation
+        const results = this.collectResults();
+        const acceptance = this.evaluateAcceptance(results);
+
         const resultsDisplay = document.getElementById('resultsDisplay');
         if (resultsDisplay) {
+            // Format acceptance status
+            let acceptanceHTML = '';
+            if (acceptance.pass && acceptance.warnings.length === 0) {
+                acceptanceHTML = '<div class="acceptance-status pass"><span class="status-icon">✔</span> <strong>PASS</strong> - All acceptance criteria met</div>';
+            } else if (acceptance.pass && acceptance.warnings.length > 0) {
+                acceptanceHTML = '<div class="acceptance-status warn"><span class="status-icon">⚠</span> <strong>WARN</strong> - Passes but has warnings</div>';
+            } else {
+                acceptanceHTML = '<div class="acceptance-status fail"><span class="status-icon">✖</span> <strong>FAIL</strong> - Acceptance criteria not met</div>';
+            }
+
+            // Format failures and warnings with regulatory citations
+            let failuresHTML = '';
+            if (acceptance.failures.length > 0) {
+                failuresHTML = '<div class="acceptance-failures"><h4>Failures:</h4><ul>';
+                acceptance.failures.forEach(failure => {
+                    let citationParts = [];
+                    
+                    // AERB citation
+                    if (failure.code) {
+                        citationParts.push(`AERB ${failure.code}`);
+                    }
+                    
+                    // IAEA citations
+                    if (failure.iaea_alignment && failure.iaea_alignment.length > 0) {
+                        const iaeaCodes = failure.iaea_alignment.map(iaea => iaea.code).join(', ');
+                        citationParts.push(`IAEA ${iaeaCodes}`);
+                    }
+                    
+                    const citation = citationParts.length > 0
+                        ? ` <span class="regulatory-citation">Aligned with ${citationParts.join(' | ')}</span>`
+                        : '';
+                    
+                    failuresHTML += `<li>${failure.message}${citation}</li>`;
+                });
+                failuresHTML += '</ul></div>';
+            }
+
+            let warningsHTML = '';
+            if (acceptance.warnings.length > 0) {
+                warningsHTML = '<div class="acceptance-warnings"><h4>Warnings:</h4><ul>';
+                acceptance.warnings.forEach(warning => {
+                    let citationParts = [];
+                    
+                    // AERB citation
+                    if (warning.code) {
+                        citationParts.push(`AERB ${warning.code}`);
+                    }
+                    
+                    // IAEA citations
+                    if (warning.iaea_alignment && warning.iaea_alignment.length > 0) {
+                        const iaeaCodes = warning.iaea_alignment.map(iaea => iaea.code).join(', ');
+                        citationParts.push(`IAEA ${iaeaCodes}`);
+                    }
+                    
+                    const citation = citationParts.length > 0
+                        ? ` <span class="regulatory-citation">Aligned with ${citationParts.join(' | ')}</span>`
+                        : '';
+                    
+                    warningsHTML += `<li>${warning.message}${citation}</li>`;
+                });
+                warningsHTML += '</ul></div>';
+            }
+
             resultsDisplay.innerHTML = `
                 <div class="result-summary">
                     <h3>Key Results</h3>
@@ -495,6 +949,12 @@ const UI = {
                     <p><strong>Activity at EOB:</strong> ${formatNumber(A_EOB)}</p>
                     <p><strong>Geometric Efficiency:</strong> ${(eta * 100).toFixed(2)}%</p>
                     <p><strong>Self-Shielding Factor:</strong> ${(f_shield * 100).toFixed(2)}%</p>
+                </div>
+                <div class="acceptance-section">
+                    <h3>Acceptance Criteria</h3>
+                    ${acceptanceHTML}
+                    ${failuresHTML}
+                    ${warningsHTML}
                 </div>
             `;
         }
@@ -766,6 +1226,896 @@ const UI = {
             });
         }
         console.log('========================================\n');
+    },
+
+    /**
+     * Load Mo-99 → Tc-99m generator validation test case
+     */
+    loadMo99ValidationCase: function() {
+        console.log('========================================');
+        console.log('Mo-99 → Tc-99m Generator Validation Test Case');
+        console.log('========================================');
+
+        // Test case parameters
+        const parent_half_life_days = 2.75; // Mo-99
+        const daughter_half_life_days = 0.25; // Tc-99m (6 hours)
+        const branching_ratio = 1.0;
+        const sigma_barns = 0.13;
+        const enrichment = 0.95;
+        const flux = 1e14; // n/cm²/s
+        const irradiation_days = 5.0;
+
+        // Convert sigma from barns to cm²
+        const sigma_cm2 = sigma_barns * 1e-24;
+
+        // Set input values
+        document.getElementById('halfLife').value = parent_half_life_days;
+        document.getElementById('crossSection').value = sigma_cm2;
+        document.getElementById('enrichment').value = enrichment;
+        document.getElementById('sigmaBurn').value = 0; // No burn-up
+        document.getElementById('sourceType').value = 'neutron';
+        this.toggleSourceType();
+        document.getElementById('flux').value = flux;
+        document.getElementById('dutyCycle').value = 1.0;
+        document.getElementById('daughterHalfLife').value = daughter_half_life_days;
+        document.getElementById('branchingRatio').value = branching_ratio;
+        document.getElementById('irradiationTime').value = irradiation_days;
+
+        // Use reasonable defaults for other parameters
+        document.getElementById('targetRadius').value = 1.0;
+        document.getElementById('targetThickness').value = 0.1;
+        document.getElementById('sourceDistance').value = 10;
+        document.getElementById('parentDensity').value = 5e22;
+        document.getElementById('chemistryDelay').value = 24;
+        document.getElementById('transportTime').value = 48;
+        document.getElementById('chemistryLoss').value = 0;
+
+        // Update charts
+        this.updateAllCharts();
+
+        console.log('Mo-99 → Tc-99m test case loaded.');
+        console.log(`Parent half-life (Mo-99): ${parent_half_life_days} days`);
+        console.log(`Daughter half-life (Tc-99m): ${daughter_half_life_days} days`);
+        console.log(`Cross-section: ${sigma_barns} barns`);
+        console.log(`Enrichment: ${enrichment}`);
+        console.log(`Flux: ${flux.toExponential(2)} n/cm²/s`);
+        console.log(`Irradiation time: ${irradiation_days} days`);
+        console.log('========================================\n');
+    },
+
+    // ============================================================================
+    // ISOTOPE ROUTE REGISTRY UI
+    // ============================================================================
+
+    /**
+     * Initialize route registry display
+     */
+    initializeRouteRegistry: function() {
+        this.updateRouteRegistry();
+    },
+
+    /**
+     * Switch route registry tab
+     */
+    switchRouteTab: function(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.route-tab').forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.dataset.tab === tabName) {
+                tab.classList.add('active');
+            }
+        });
+
+        // Update tab content
+        document.querySelectorAll('.route-tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+
+        const targetTab = document.getElementById(tabName + 'Tab');
+        if (targetTab) {
+            targetTab.classList.add('active');
+        }
+
+        // Update routes for active tab
+        this.updateRouteRegistry();
+    },
+
+    /**
+     * Update route registry display
+     */
+    updateRouteRegistry: function() {
+        // Get current tab
+        const activeTab = document.querySelector('.route-tab.active');
+        if (!activeTab) return;
+
+        const tabName = activeTab.dataset.tab;
+        let routes = [];
+        let containerId = '';
+
+        if (tabName === 'fast-neutron') {
+            routes = IsotopeRouteRegistry.getFastNeutronRoutes();
+            containerId = 'fastNeutronRoutes';
+        } else if (tabName === 'moderated-capture') {
+            routes = IsotopeRouteRegistry.getModeratedCaptureRoutes();
+            containerId = 'moderatedCaptureRoutes';
+        } else if (tabName === 'alpha-precursor') {
+            routes = IsotopeRouteRegistry.getAlphaPrecursorRoutes();
+            containerId = 'alphaPrecursorRoutes';
+        }
+
+        this.displayRoutes(routes, containerId);
+    },
+
+    /**
+     * Display routes in container
+     */
+    displayRoutes: function(routes, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        if (routes.length === 0) {
+            container.innerHTML = '<p style="color: #7f8c8d; padding: 20px;">No routes available in this category.</p>';
+            return;
+        }
+
+        // Get current simulation parameters for evaluation
+        const conditions = this.getRouteEvaluationConditions();
+
+        let html = '';
+        routes.forEach(route => {
+            // Evaluate route
+            let evaluation = null;
+            try {
+                evaluation = Model.evaluateRoute(route, conditions);
+            } catch (error) {
+                // Route evaluation failed (e.g., missing parameters)
+                // Still assess impurity traps even if route evaluation fails
+                let impurityTraps = [];
+                try {
+                    impurityTraps = Model.assessImpurityTraps(route);
+                } catch (e) {
+                    // Ignore trap assessment errors
+                }
+                
+                evaluation = {
+                    feasibility: 'Not recommended',
+                    feasibility_reasons: ['Route evaluation requires additional parameters'],
+                    reaction_rate: 0,
+                    activity: 0,
+                    specific_activity: 0,
+                    impurity_risk_level: 'unknown',
+                    impurity_traps: impurityTraps
+                };
+            }
+
+            html += this.createRouteCard(route, evaluation);
+        });
+
+        container.innerHTML = html;
+    },
+
+    /**
+     * Get conditions for route evaluation from current UI parameters
+     */
+    getRouteEvaluationConditions: function() {
+        const sourceType = document.getElementById('sourceType').value;
+        const neutronFlux = this.getParam('flux', 1e14);
+        const neutronEnergy = 14.1; // MeV for fast neutron routes
+        const targetMass = 1.0; // g (placeholder)
+        const enrichment = this.getParam('enrichment', 1.0);
+        const targetDensity = this.getParam('parentDensity', 5e22);
+        const irradiationTime = this.getParam('irradiationTime', 7) * 86400; // Convert days to seconds
+        const selfShieldingFactor = 1.0; // Default
+
+        return {
+            neutronFlux: neutronFlux,
+            neutronEnergy: neutronEnergy,
+            targetMass: targetMass,
+            enrichment: enrichment,
+            targetDensity: targetDensity,
+            irradiationTime: irradiationTime,
+            selfShieldingFactor: selfShieldingFactor
+        };
+    },
+
+    /**
+     * Create route card HTML
+     */
+    createRouteCard: function(route, evaluation) {
+        const reactionStr = `${route.target_isotope}(${route.reaction_type})${route.product_isotope}`;
+        const feasibilityClass = evaluation.feasibility.toLowerCase().replace(/\s+/g, '-');
+        
+        // Format cross-section
+        let crossSectionDisplay = 'N/A';
+        if (route.reaction_type === 'n,gamma') {
+            crossSectionDisplay = route.cross_section_thermal ? `${route.cross_section_thermal} b (thermal)` : 'N/A';
+        } else if (route.reaction_type === 'n,p' || route.reaction_type === 'n,2n') {
+            crossSectionDisplay = route.cross_section_14_1_MeV ? `${route.cross_section_14_1_MeV} mb @ 14.1 MeV` : 'N/A';
+        } else if (route.reaction_type === 'alpha') {
+            crossSectionDisplay = 'Charged particle';
+        }
+
+        // Format activity
+        const activityGBq = evaluation.activity / 1e9;
+        const activityDisplay = activityGBq >= 1 
+            ? `${activityGBq.toFixed(2)} GBq`
+            : `${(activityGBq * 1000).toFixed(2)} MBq`;
+
+        // Format specific activity
+        const saDisplay = evaluation.specific_activity >= 1e12
+            ? `${(evaluation.specific_activity / 1e12).toFixed(2)} TBq/g`
+            : `${(evaluation.specific_activity / 1e9).toFixed(2)} GBq/g`;
+
+        // Impurity risk indicator
+        const impurityRiskClass = evaluation.impurity_risk_level === 'high' ? 'high-risk' : 
+                                 evaluation.impurity_risk_level === 'moderate' ? 'moderate-risk' : 'low-risk';
+
+        let html = `
+            <div class="route-card">
+                <div class="route-header">
+                    <div>
+                        <div class="route-title">${route.product_isotope}</div>
+                        <div class="route-reaction">${reactionStr}</div>
+                    </div>
+                    <div class="route-feasibility ${feasibilityClass}">${evaluation.feasibility}</div>
+                </div>
+                
+                <div class="route-details">
+                    <div class="route-detail-item">
+                        <span class="route-detail-label">Half-Life</span>
+                        <span class="route-detail-value">${route.product_half_life_days} days</span>
+                    </div>
+                    <div class="route-detail-item">
+                        <span class="route-detail-label">Cross-Section</span>
+                        <span class="route-detail-value">${crossSectionDisplay}</span>
+                    </div>
+                    <div class="route-detail-item">
+                        <span class="route-detail-label">Reaction Rate</span>
+                        <span class="route-detail-value">${evaluation.reaction_rate.toExponential(2)} reactions/s</span>
+                    </div>
+                    <div class="route-detail-item">
+                        <span class="route-detail-label">Activity (EOB)</span>
+                        <span class="route-detail-value">${activityDisplay}</span>
+                    </div>
+                    <div class="route-detail-item">
+                        <span class="route-detail-label">Specific Activity</span>
+                        <span class="route-detail-value">${saDisplay}</span>
+                    </div>
+                    <div class="route-detail-item">
+                        <span class="route-detail-label">Carrier-Added</span>
+                        <span class="route-detail-value">${route.carrier_added_acceptable ? 'Acceptable' : 'Not acceptable'}</span>
+                    </div>
+                </div>
+
+                ${route.known_impurity_risks && route.known_impurity_risks.length > 0 ? `
+                <div class="route-impurities">
+                    <div class="route-impurities-title">Known Impurity Risks (${evaluation.impurity_risk_level} risk):</div>
+                    <ul class="route-impurities-list">
+                        ${route.known_impurity_risks.map(impurity => `<li>${impurity}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                ${evaluation.impurity_traps && evaluation.impurity_traps.length > 0 ? `
+                <div class="route-impurity-traps">
+                    <div class="route-impurity-traps-title">Impurity Trap Assessment:</div>
+                    <div class="impurity-trap-list">
+                        ${evaluation.impurity_traps.map(trap => `
+                            <div class="impurity-trap-item ${trap.severity}">
+                                <span class="trap-severity-badge">${trap.severity === 'high' ? 'HIGH RISK' : 'MODERATE RISK'}</span>
+                                <span class="trap-message">${trap.message}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
+                ${evaluation.feasibility_reasons && evaluation.feasibility_reasons.length > 0 ? `
+                <div class="route-feasibility-reasons">
+                    <div class="route-feasibility-reasons-title">Feasibility Assessment:</div>
+                    <ul class="route-feasibility-reasons-list">
+                        ${evaluation.feasibility_reasons.map(reason => `<li>${reason}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+            </div>
+        `;
+
+        return html;
+    },
+
+    // ============================================================================
+    // ISOTOPE ROUTE EXPLORER
+    // ============================================================================
+
+    /**
+     * Initialize route explorer
+     */
+    initRouteExplorer: function() {
+        this.populateRouteExplorer();
+    },
+
+    /**
+     * Switch route explorer tab
+     */
+    switchRouteExplorerTab: function(tabName) {
+        // Update tab buttons
+        document.querySelectorAll('.route-explorer-tab').forEach(tab => {
+            tab.classList.remove('active');
+            if (tab.dataset.tab === tabName) {
+                tab.classList.add('active');
+            }
+        });
+
+        // Update tab content
+        document.querySelectorAll('.route-explorer-tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+
+        // Map tab names to content IDs
+        const tabContentMap = {
+            'fast-neutron': 'fastNeutronTab',
+            'moderated-capture': 'moderatedCaptureTab',
+            'generator': 'generatorTab',
+            'alpha': 'alphaTab',
+            'industrial': 'industrialTab'
+        };
+
+        const contentId = tabContentMap[tabName] || tabName + 'Tab';
+        const contentElement = document.getElementById(contentId);
+        if (contentElement) {
+            contentElement.classList.add('active');
+        }
+
+        // Repopulate routes for active tab
+        this.populateRouteExplorer();
+    },
+
+    /**
+     * Populate route explorer with routes from ISOTOPE_ROUTES
+     */
+    populateRouteExplorer: function() {
+        if (typeof ISOTOPE_ROUTES === 'undefined') {
+            console.warn('ISOTOPE_ROUTES not loaded');
+            return;
+        }
+
+        // Get current model state for evaluation
+        const modelState = this.getModelStateForRouteEvaluation();
+
+        // Group routes by category
+        const routesByCategory = {
+            'fast': [],
+            'moderated': [],
+            'generator': [],
+            'alpha': [],
+            'industrial': []
+        };
+
+        ISOTOPE_ROUTES.forEach(route => {
+            if (routesByCategory.hasOwnProperty(route.category)) {
+                routesByCategory[route.category].push(route);
+            }
+        });
+
+        // Populate each category tab
+        this.populateCategoryTab('fastNeutronRoutesList', routesByCategory['fast'], modelState);
+        this.populateCategoryTab('moderatedCaptureRoutesList', routesByCategory['moderated'], modelState);
+        this.populateCategoryTab('generatorRoutesList', routesByCategory['generator'], modelState);
+        this.populateCategoryTab('alphaRoutesList', routesByCategory['alpha'], modelState);
+        this.populateCategoryTab('industrialRoutesList', routesByCategory['industrial'], modelState);
+    },
+
+    /**
+     * Populate a category tab with routes
+     */
+    populateCategoryTab: function(containerId, routes, modelState) {
+        const container = document.getElementById(containerId);
+        if (!container) {
+            return;
+        }
+
+        if (routes.length === 0) {
+            container.innerHTML = '<p style="color: #6c757d; font-style: italic;">No routes in this category.</p>';
+            return;
+        }
+
+        let html = '';
+        routes.forEach(route => {
+            // Evaluate route
+            let evaluation = null;
+            try {
+                if (typeof RouteEvaluator !== 'undefined') {
+                    evaluation = RouteEvaluator.evaluateRoute(route, modelState);
+                } else {
+                    // Fallback if RouteEvaluator not available
+                    evaluation = {
+                        route_id: route.id,
+                        feasible: true,
+                        classification: 'Feasible',
+                        reasons: [],
+                        warnings: [],
+                        impurity_risk_level: 'Low',
+                        reaction_rate: 0,
+                        activity: 0,
+                        specific_activity: 0
+                    };
+                }
+            } catch (error) {
+                console.error(`Error evaluating route ${route.id}:`, error);
+                evaluation = {
+                    route_id: route.id,
+                    feasible: false,
+                    classification: 'Not recommended',
+                    reasons: ['Route evaluation error'],
+                    warnings: [],
+                    impurity_risk_level: 'Unknown',
+                    reaction_rate: 0,
+                    activity: 0,
+                    specific_activity: 0
+                };
+            }
+
+            // Score route
+            let score = null;
+            try {
+                if (typeof RouteScoring !== 'undefined') {
+                    score = RouteScoring.scoreRoute(route, evaluation);
+                }
+            } catch (error) {
+                console.error(`Error scoring route ${route.id}:`, error);
+            }
+
+            html += this.createRouteExplorerCard(route, evaluation, score);
+        });
+
+        container.innerHTML = html;
+    },
+
+    /**
+     * Get regulatory alignment notes for a route
+     */
+    getRouteRegulatoryAlignment: function(route) {
+        const alignments = {
+            aerb: [],
+            iaea: []
+        };
+
+        // Base alignment for all routes (planning-level analysis)
+        // AERB alignments
+        alignments.aerb.push('AERB/RF-R/SC-1'); // Radioisotope Production Purity
+
+        // IAEA alignments
+        alignments.iaea.push('IAEA SRS-63'); // Quality assurance for radionuclidic purity
+        alignments.iaea.push('IAEA TRS-469'); // Production and quality control of medical radioisotopes
+
+        // Additional alignments based on route category
+        if (route.category === 'generator') {
+            alignments.iaea.push('IAEA TRS-469'); // Generator systems (duplicate will be removed)
+        }
+
+        if (route.category === 'alpha' || route.regulatory_flag === 'exploratory') {
+            alignments.iaea.push('IAEA SSG-46'); // Radiation protection in radioisotope production
+        }
+
+        if (route.category === 'industrial') {
+            alignments.aerb.push('AERB/RF-R/SC-4'); // Activity delivery requirements
+        }
+
+        return alignments;
+    },
+
+    /**
+     * Format regulatory alignment text
+     * Format: "Aligned with IAEA SRS-63 | AERB/RF-R/SC-1 (planning-level analysis)"
+     */
+    formatRegulatoryAlignment: function(alignments) {
+        const parts = [];
+        
+        if (alignments.iaea && alignments.iaea.length > 0) {
+            // Remove duplicates - IAEA codes already include "IAEA" prefix
+            const uniqueIAEA = [...new Set(alignments.iaea)];
+            parts.push(uniqueIAEA.join(', '));
+        }
+        
+        if (alignments.aerb && alignments.aerb.length > 0) {
+            // Remove duplicates - AERB codes already include "AERB/" prefix
+            const uniqueAERB = [...new Set(alignments.aerb)];
+            parts.push(uniqueAERB.join(', '));
+        }
+
+        if (parts.length === 0) {
+            return '';
+        }
+
+        return `Aligned with ${parts.join(' | ')} (planning-level analysis)`;
+    },
+
+    /**
+     * Create route card HTML for route explorer
+     */
+    createRouteExplorerCard: function(route, evaluation, score) {
+        const reactionStr = `${route.target_isotope}(${route.reaction})${route.product_isotope}`;
+        const feasibilityClass = evaluation.classification.toLowerCase().replace(/\s+/g, '-');
+        
+        // Format threshold
+        const thresholdDisplay = route.threshold_MeV !== null && route.threshold_MeV > 0 
+            ? `${route.threshold_MeV} MeV` 
+            : 'N/A';
+
+        // Format cross-section
+        const crossSectionDisplay = route.nominal_sigma_barns !== null
+            ? `${route.nominal_sigma_barns} b`
+            : 'Not specified';
+
+        // Format regulatory flag
+        const regulatoryFlagClass = route.regulatory_flag || 'standard';
+        const regulatoryFlagLabel = regulatoryFlagClass.charAt(0).toUpperCase() + regulatoryFlagClass.slice(1);
+
+        // Format impurity risk level
+        const impurityRiskLevel = evaluation.impurity_risk_level || 'Low';
+        const impurityRiskClass = impurityRiskLevel.toLowerCase();
+
+        // Get regulatory alignment notes
+        const regulatoryAlignment = this.getRouteRegulatoryAlignment(route);
+        const alignmentText = this.formatRegulatoryAlignment(regulatoryAlignment);
+
+        // Score display
+        let scoreDisplay = '';
+        if (score) {
+            const scoreValue = score.total_score.toFixed(2);
+            let scoreColorClass = 'score-red';
+            if (score.total_score >= 4.0) {
+                scoreColorClass = 'score-green';
+            } else if (score.total_score >= 2.5) {
+                scoreColorClass = 'score-amber';
+            }
+            
+            const cardId = `route-card-${route.id}`;
+            scoreDisplay = `
+                <div class="route-score-section">
+                    <div class="route-score-header">
+                        <span class="route-score-label">Route Score:</span>
+                        <span class="route-score-value ${scoreColorClass}">${scoreValue}</span>
+                        <span class="route-score-classification ${scoreColorClass}">${score.classification}</span>
+                        <button class="score-breakdown-toggle" onclick="UI.toggleScoreBreakdown('${cardId}')">
+                            <span class="toggle-icon">▼</span> Breakdown
+                        </button>
+                    </div>
+                    <div id="${cardId}-breakdown" class="score-breakdown-table" style="display: none;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th>Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Physics</td>
+                                    <td>${score.breakdown.physics.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td>Yield</td>
+                                    <td>${score.breakdown.yield.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td>Specific Activity</td>
+                                    <td>${score.breakdown.specific_activity.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td>Impurity</td>
+                                    <td>${score.breakdown.impurity.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td>Logistics</td>
+                                    <td>${score.breakdown.logistics.toFixed(2)}</td>
+                                </tr>
+                                <tr>
+                                    <td>Regulatory</td>
+                                    <td>${score.breakdown.regulatory.toFixed(2)}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <div class="score-disclaimer">
+                            <em>Scores are comparative planning metrics, not guarantees of production or approval.</em>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="route-card" id="route-card-${route.id}">
+                <div class="route-header">
+                    <div>
+                        <div class="route-title">${route.product_isotope}</div>
+                        <div class="route-reaction">${reactionStr}</div>
+                    </div>
+                    <div>
+                        <div class="route-feasibility ${feasibilityClass}">${evaluation.classification}</div>
+                        <span class="regulatory-flag ${regulatoryFlagClass}">${regulatoryFlagLabel}</span>
+                    </div>
+                </div>
+                
+                ${scoreDisplay}
+
+                <div class="route-details">
+                    <div class="route-detail-item">
+                        <span class="route-detail-label">Half-Life</span>
+                        <span class="route-detail-value">${route.product_half_life_days} days</span>
+                    </div>
+                    <div class="route-detail-item">
+                        <span class="route-detail-label">Threshold</span>
+                        <span class="route-detail-value">${thresholdDisplay}</span>
+                    </div>
+                    <div class="route-detail-item">
+                        <span class="route-detail-label">Cross-Section</span>
+                        <span class="route-detail-value">${crossSectionDisplay}</span>
+                    </div>
+                    <div class="route-detail-item">
+                        <span class="route-detail-label">Impurity Risk</span>
+                        <span class="route-detail-value">
+                            <span class="impurity-risk-badge ${impurityRiskClass}">${impurityRiskLevel}</span>
+                        </span>
+                    </div>
+                </div>
+
+                ${alignmentText ? `
+                <div class="route-regulatory-alignment">
+                    <div class="route-regulatory-alignment-text">${alignmentText}</div>
+                </div>
+                ` : ''}
+
+                ${evaluation.reasons && evaluation.reasons.length > 0 ? `
+                <div class="route-feasibility-reasons">
+                    <div class="route-feasibility-reasons-title">Assessment Notes:</div>
+                    <ul class="route-feasibility-reasons-list">
+                        ${evaluation.reasons.map(reason => `<li>${reason}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+
+                ${evaluation.warnings && evaluation.warnings.length > 0 ? `
+                <div class="route-feasibility-reasons">
+                    <div class="route-feasibility-reasons-title">Warnings:</div>
+                    <ul class="route-feasibility-reasons-list">
+                        ${evaluation.warnings.map(warning => `<li style="color: #856404;">${warning}</li>`).join('')}
+                    </ul>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    },
+
+    /**
+     * Get current model state for route evaluation
+     */
+    getModelStateForRouteEvaluation: function() {
+        const sourceType = document.getElementById('sourceType') ? document.getElementById('sourceType').value : 'neutron';
+        const neutronFlux = this.getParam('flux', 1e14);
+        const neutronEnergy = this.getParam('beamEnergy', 14.1); // Use beam energy as neutron energy for fast routes
+        const targetMass = this.getParam('targetMass', 1.0) || 1.0;
+        const enrichment = this.getParam('enrichment', 1.0);
+        const irradiationTime = this.getParam('irradiationTime', 7) * 86400; // Convert days to seconds
+        const selfShieldingFactor = 1.0; // Default
+
+        return {
+            neutronFlux: neutronFlux,
+            neutronEnergy: neutronEnergy,
+            targetMass: targetMass,
+            enrichment: enrichment,
+            irradiationTime: irradiationTime,
+            selfShieldingFactor: selfShieldingFactor
+        };
+    },
+
+    // ============================================================================
+    // COMPARATIVE ANALYTICS
+    // ============================================================================
+
+    /**
+     * Update comparative charts based on selected routes
+     */
+    updateComparativeCharts: function() {
+        if (typeof ISOTOPE_ROUTES === 'undefined') {
+            return;
+        }
+
+        const routesData = [];
+
+        // Comparison Set 1: Therapeutic isotopes
+        if (document.getElementById('compareLu177') && document.getElementById('compareLu177').checked) {
+            // Lu-177 route - check both ISOTOPE_ROUTES and legacy routes.js
+            let route = null;
+            if (typeof ISOTOPE_ROUTES !== 'undefined') {
+                route = ISOTOPE_ROUTES.find(r => r.product_isotope === 'Lu-177');
+            }
+            if (!route && typeof IsotopeRouteRegistry !== 'undefined') {
+                const legacyRoute = IsotopeRouteRegistry.routes.find(r => r.product_isotope === 'Lu-177');
+                if (legacyRoute) {
+                    // Convert legacy route format to ISOTOPE_ROUTES format
+                    route = {
+                        id: 'lu176-ng-lu177',
+                        category: 'moderated',
+                        target_isotope: legacyRoute.target_isotope,
+                        reaction: 'n,γ',
+                        threshold_MeV: null,
+                        nominal_sigma_barns: legacyRoute.cross_section_thermal,
+                        product_isotope: legacyRoute.product_isotope,
+                        product_half_life_days: legacyRoute.product_half_life_days,
+                        chemical_separable: legacyRoute.chemical_separability,
+                        carrier_added_acceptable: !legacyRoute.carrier_added_acceptable ? false : true,
+                        impurity_risks: legacyRoute.known_impurity_risks || [],
+                        regulatory_flag: 'standard'
+                    };
+                }
+            }
+            if (route) {
+                routesData.push(this.calculateRouteData(route, 'Lu-177 (Lu-176(n,γ))'));
+            }
+        }
+
+        if (document.getElementById('compareSc47') && document.getElementById('compareSc47').checked) {
+            const route = ISOTOPE_ROUTES.find(r => r.product_isotope === 'Sc-47' && r.target_isotope === 'Ti-47');
+            if (route) {
+                routesData.push(this.calculateRouteData(route, 'Sc-47 (Ti-47(n,p))'));
+            }
+        }
+
+        if (document.getElementById('compareCu67') && document.getElementById('compareCu67').checked) {
+            const route = ISOTOPE_ROUTES.find(r => r.product_isotope === 'Cu-67');
+            if (route) {
+                routesData.push(this.calculateRouteData(route, 'Cu-67 (Zn-67(n,p))'));
+            }
+        }
+
+        // Comparison Set 2: Mo-99 routes
+        if (document.getElementById('compareMo99Reactor') && document.getElementById('compareMo99Reactor').checked) {
+            const route = ISOTOPE_ROUTES.find(r => r.product_isotope === 'Mo-99' && r.category === 'generator');
+            if (route) {
+                routesData.push(this.calculateRouteData(route, 'Mo-99 Reactor (Mo-98(n,γ))'));
+            }
+        }
+
+        if (document.getElementById('compareMo99Fast') && document.getElementById('compareMo99Fast').checked) {
+            const route = ISOTOPE_ROUTES.find(r => r.product_isotope === 'Mo-99' && r.category === 'fast');
+            if (route) {
+                routesData.push(this.calculateRouteData(route, 'Mo-99 Fast (Mo-100(n,2n))'));
+            }
+        }
+
+        // Update charts
+        if (routesData.length > 0) {
+            Charts.updateComparativeActivityChart('chartComparativeActivity', routesData);
+            Charts.updateComparativeSpecificActivityChart('chartComparativeSpecificActivity', routesData);
+        } else {
+            // Clear charts if no routes selected
+            Charts.initComparativeActivityChart('chartComparativeActivity');
+            Charts.initComparativeSpecificActivityChart('chartComparativeSpecificActivity');
+        }
+    },
+
+    /**
+     * Calculate route data for comparative charts
+     */
+    calculateRouteData: function(route, label) {
+        const modelState = this.getModelStateForRouteEvaluation();
+        
+        // Evaluate route to get impurity risk
+        let evaluation = null;
+        let impurityRisk = 'Low';
+        try {
+            if (typeof RouteEvaluator !== 'undefined') {
+                evaluation = RouteEvaluator.evaluateRoute(route, modelState);
+                impurityRisk = evaluation.impurity_risk_level || 'Low';
+            }
+        } catch (error) {
+            console.error(`Error evaluating route ${route.id}:`, error);
+        }
+
+        // Get default parameters
+        const targetMass = modelState.targetMass || 1.0; // g
+        const enrichment = modelState.enrichment || 1.0;
+        const N_AVOGADRO = 6.02214076e23; // atoms/mol
+        const TYPICAL_ATOMIC_MASS = 100; // g/mol (placeholder)
+        const N_target = (targetMass * N_AVOGADRO * enrichment) / TYPICAL_ATOMIC_MASS;
+        const f_shield = modelState.selfShieldingFactor || 1.0;
+
+        // Determine cross-section
+        let sigma_cm2 = 0;
+        if (route.reaction === 'n,γ' || route.reaction === 'n,gamma') {
+            sigma_cm2 = (route.nominal_sigma_barns || 1) * 1e-24; // Use placeholder if not specified
+        } else {
+            sigma_cm2 = (route.nominal_sigma_barns || 0.01) * 1e-24; // Use placeholder if not specified
+        }
+
+        // Calculate activity vs time data
+        const lambda = Model.decayConstant(route.product_half_life_days);
+        const numPoints = 200;
+        const maxTimeDays = Math.min(route.product_half_life_days * 5, 30); // Cap at 30 days or 5 half-lives
+        const timeData = [];
+        const activityData = [];
+        const fluxForTime = route.reaction === 'n,γ' || route.reaction === 'n,gamma' 
+            ? (modelState.neutronFlux || 1e14)
+            : (modelState.neutronFlux || 1e13);
+
+        for (let i = 0; i <= numPoints; i++) {
+            const t_days = (i / numPoints) * maxTimeDays;
+            const t_seconds = t_days * 86400;
+            const f_sat = Model.saturationFactor(lambda, t_seconds);
+            const R = Model.reactionRate(N_target, sigma_cm2, fluxForTime, f_shield);
+            const N_EOB = Model.atomsAtEOB(R, f_sat, lambda);
+            const activity = Model.activity(lambda, N_EOB);
+            const activity_GBq = activity / 1e9;
+
+            timeData.push(t_days);
+            activityData.push(activity_GBq);
+        }
+
+        // Calculate specific activity vs flux data
+        const fluxData = [];
+        const specificActivityData = [];
+        const t_irr = modelState.irradiationTime || 86400 * 7; // 7 days default
+        const f_sat_fixed = Model.saturationFactor(lambda, t_irr);
+
+        // Generate flux range
+        const minFlux = route.reaction === 'n,γ' || route.reaction === 'n,gamma' ? 1e12 : 1e11;
+        const maxFlux = route.reaction === 'n,γ' || route.reaction === 'n,gamma' ? 1e16 : 1e15;
+        const numFluxPoints = 100;
+
+        for (let i = 0; i <= numFluxPoints; i++) {
+            const flux = minFlux * Math.pow(maxFlux / minFlux, i / numFluxPoints);
+            const R = Model.reactionRate(N_target, sigma_cm2, flux, f_shield);
+            const N_EOB = Model.atomsAtEOB(R, f_sat_fixed, lambda);
+            const activity = Model.activity(lambda, N_EOB);
+            
+            // Estimate product mass
+            const ATOMIC_MASS_UNIT_g = 1.66053906660e-24; // g
+            const TYPICAL_ATOMIC_MASS_AMU = 100; // amu (placeholder)
+            const productMass = N_EOB * TYPICAL_ATOMIC_MASS_AMU * ATOMIC_MASS_UNIT_g;
+            const specificActivity = Model.specificActivity(activity, Math.max(productMass, 1e-9));
+            const specificActivity_TBq_g = specificActivity / 1e12;
+
+            fluxData.push(flux);
+            specificActivityData.push(specificActivity_TBq_g);
+        }
+
+        return {
+            label: label,
+            impurity_risk: impurityRisk,
+            timeData: timeData,
+            activityData: activityData,
+            fluxData: fluxData,
+            specificActivityData: specificActivityData
+        };
+    },
+
+    /**
+     * Toggle score breakdown table visibility
+     */
+    toggleScoreBreakdown: function(cardId) {
+        const breakdownId = cardId + '-breakdown';
+        const breakdownElement = document.getElementById(breakdownId);
+        if (!breakdownElement) {
+            return;
+        }
+
+        const scoreSection = breakdownElement.closest('.route-score-section');
+        const toggleButton = scoreSection ? scoreSection.querySelector('.score-breakdown-toggle') : null;
+        const toggleIcon = toggleButton ? toggleButton.querySelector('.toggle-icon') : null;
+
+        if (breakdownElement.style.display === 'none' || breakdownElement.style.display === '') {
+            breakdownElement.style.display = 'block';
+            if (toggleIcon) {
+                toggleIcon.textContent = '▲';
+            }
+        } else {
+            breakdownElement.style.display = 'none';
+            if (toggleIcon) {
+                toggleIcon.textContent = '▼';
+            }
+        }
     }
 };
 

@@ -450,6 +450,385 @@ const Model = {
             sumSquares += uncertainties[i] * uncertainties[i];
         }
         return Math.sqrt(sumSquares);
+    },
+
+    // ============================================================================
+    // ISOTOPE ROUTE EVALUATION
+    // ============================================================================
+
+    /**
+     * Evaluate threshold activation for threshold reactions
+     * 
+     * @param {number} neutronEnergy - Neutron energy (MeV)
+     * @param {number} thresholdEnergy - Reaction threshold energy (MeV)
+     * @param {number} crossSectionAtEnergy - Cross-section at neutron energy (mb)
+     * @returns {number} Effective cross-section (mb), 0 if below threshold
+     * 
+     * Formula: σ_eff = σ(E) if E > E_threshold else 0
+     * Units: [mb] = [mb]
+     */
+    thresholdActivation: function(neutronEnergy, thresholdEnergy, crossSectionAtEnergy) {
+        if (neutronEnergy < thresholdEnergy) {
+            return 0;
+        }
+        return crossSectionAtEnergy;
+    },
+
+    /**
+     * Calculate specific activity
+     * 
+     * @param {number} activity - Activity A (Bq)
+     * @param {number} mass - Mass of product (g)
+     * @returns {number} Specific activity (Bq/g)
+     * 
+     * Formula: SA = A / m
+     * Units: [Bq/g] = [Bq] / [g]
+     */
+    specificActivity: function(activity, mass) {
+        if (mass <= 0) {
+            throw new Error('Mass must be positive');
+        }
+        return activity / mass;
+    },
+
+    /**
+     * Evaluate an isotope production route
+     * 
+     * @param {Object} route - Route object from IsotopeRouteRegistry
+     * @param {Object} conditions - Production conditions
+     * @param {number} conditions.neutronFlux - Neutron flux (cm^-2 s^-1) for thermal reactions
+     * @param {number} conditions.neutronEnergy - Neutron energy (MeV) for threshold reactions
+     * @param {number} conditions.targetDensity - Target atom density (atoms/cm³)
+     * @param {number} conditions.targetMass - Target mass (g)
+     * @param {number} conditions.enrichment - Target enrichment (fraction)
+     * @param {number} conditions.irradiationTime - Irradiation time (s)
+     * @param {number} conditions.selfShieldingFactor - Self-shielding factor (default 1.0)
+     * @returns {Object} Evaluation results
+     */
+    evaluateRoute: function(route, conditions) {
+        if (!route || !conditions) {
+            throw new Error('Route and conditions must be provided');
+        }
+
+        const f_shield = conditions.selfShieldingFactor || 1.0;
+        const enrichment = conditions.enrichment || 1.0;
+        const targetDensity = conditions.targetDensity || 5e22; // atoms/cm³
+        const targetMass = conditions.targetMass || 1.0; // g
+        const t_irr = conditions.irradiationTime || 86400; // s
+
+        // Determine cross-section based on reaction type
+        let sigma = 0;
+        let reactionRate = 0;
+        let effectiveFlux = 0;
+
+        if (route.reaction_type === 'n,gamma') {
+            // Thermal neutron reaction
+            if (!route.cross_section_thermal) {
+                throw new Error('Thermal cross-section not defined for n,gamma reaction');
+            }
+            sigma = route.cross_section_thermal * 1e-24; // Convert barns to cm²
+            effectiveFlux = conditions.neutronFlux || 1e14; // cm^-2 s^-1
+            
+            // Calculate number of target atoms
+            // Placeholder: assumes typical atomic mass ~100 amu
+            // More accurate: N_target = (targetMass * N_A * enrichment) / M_target
+            const N_AVOGADRO = 6.02214076e23; // atoms/mol
+            const TYPICAL_ATOMIC_MASS = 100; // g/mol (placeholder)
+            const N_target = (targetMass * N_AVOGADRO * enrichment) / TYPICAL_ATOMIC_MASS;
+            
+            reactionRate = this.reactionRate(N_target, sigma, effectiveFlux, f_shield);
+        } else if (route.reaction_type === 'n,p' || route.reaction_type === 'n,2n') {
+            // Threshold reaction
+            if (!conditions.neutronEnergy) {
+                throw new Error('Neutron energy required for threshold reactions');
+            }
+            if (!route.cross_section_14_1_MeV) {
+                throw new Error('Cross-section at 14.1 MeV not defined for threshold reaction');
+            }
+            
+            // Convert mb to cm² (1 mb = 1e-27 cm²)
+            const sigma_14_1_MeV = route.cross_section_14_1_MeV * 1e-27; // cm²
+            
+            // Apply threshold activation
+            sigma = this.thresholdActivation(
+                conditions.neutronEnergy,
+                route.threshold_energy,
+                sigma_14_1_MeV
+            );
+            
+            // For threshold reactions, assume fast neutron flux
+            effectiveFlux = conditions.neutronFlux || 1e13; // cm^-2 s^-1 (typically lower than thermal)
+            
+            // Calculate number of target atoms (same as thermal)
+            const N_AVOGADRO = 6.02214076e23; // atoms/mol
+            const TYPICAL_ATOMIC_MASS = 100; // g/mol (placeholder)
+            const N_target = (targetMass * N_AVOGADRO * enrichment) / TYPICAL_ATOMIC_MASS;
+            
+            reactionRate = this.reactionRate(N_target, sigma, effectiveFlux, f_shield);
+        } else if (route.reaction_type === 'alpha') {
+            // Alpha particle reaction (charged particle beam)
+            // Placeholder: use simplified reaction rate calculation
+            // Actual calculation would require beam current, target thickness, etc.
+            // For now, use placeholder reaction rate
+            const PLACEHOLDER_ALPHA_CROSS_SECTION = 1e-26; // cm² (placeholder)
+            const PLACEHOLDER_ALPHA_FLUX = 1e10; // particles/cm²/s (placeholder)
+            
+            sigma = PLACEHOLDER_ALPHA_CROSS_SECTION;
+            effectiveFlux = PLACEHOLDER_ALPHA_FLUX;
+            
+            const N_AVOGADRO = 6.02214076e23; // atoms/mol
+            const TYPICAL_ATOMIC_MASS = 100; // g/mol (placeholder)
+            const N_target = (targetMass * N_AVOGADRO * enrichment) / TYPICAL_ATOMIC_MASS;
+            
+            reactionRate = this.reactionRate(N_target, sigma, effectiveFlux, f_shield);
+        } else {
+            throw new Error(`Unknown reaction type: ${route.reaction_type}`);
+        }
+
+        // Calculate product atoms and activity
+        const lambda = this.decayConstant(route.product_half_life_days);
+        const f_sat = this.saturationFactor(lambda, t_irr);
+        const N_product = this.atomsAtEOB(reactionRate, f_sat, lambda);
+        const activity = this.activity(lambda, N_product);
+
+        // Estimate product mass for specific activity calculation
+        // Placeholder: assumes typical atomic mass ~100 amu
+        // More accurate calculation would use actual atomic masses from nuclear data
+        const ATOMIC_MASS_UNIT_g = 1.66053906660e-24; // g
+        const TYPICAL_ATOMIC_MASS = 100; // amu (placeholder)
+        const productMass = N_product * TYPICAL_ATOMIC_MASS * ATOMIC_MASS_UNIT_g;
+        const specificActivity = this.specificActivity(activity, Math.max(productMass, 1e-9));
+
+        // Qualitative impurity assessment
+        const impurityRiskLevel = this.assessImpurityRisk(route, reactionRate, t_irr);
+
+        // Impurity trap assessment
+        const impurityTraps = this.assessImpurityTraps(route);
+
+        // Route classification
+        const feasibility = this.classifyRouteFeasibility(
+            route,
+            reactionRate,
+            activity,
+            specificActivity,
+            impurityRiskLevel
+        );
+
+        return {
+            route: route,
+            reaction_rate: reactionRate, // reactions/s
+            product_atoms: N_product,
+            activity: activity, // Bq
+            specific_activity: specificActivity, // Bq/g
+            impurity_risk_level: impurityRiskLevel,
+            impurity_traps: impurityTraps,
+            feasibility: feasibility.classification,
+            feasibility_reasons: feasibility.reasons,
+            cross_section_used: sigma, // cm²
+            effective_flux: effectiveFlux, // cm^-2 s^-1
+            saturation_factor: f_sat
+        };
+    },
+
+    /**
+     * Assess impurity risk qualitatively
+     * 
+     * @param {Object} route - Route object
+     * @param {number} reactionRate - Production reaction rate (reactions/s)
+     * @param {number} irradiationTime - Irradiation time (s)
+     * @returns {string} Risk level: 'low', 'moderate', 'high'
+     */
+    assessImpurityRisk: function(route, reactionRate, irradiationTime) {
+        // Simple heuristic based on route characteristics
+        let riskScore = 0;
+
+        // More impurities listed = higher risk
+        if (route.known_impurity_risks) {
+            riskScore += route.known_impurity_risks.length;
+        }
+
+        // Longer irradiation = more time for impurity buildup
+        const irradiationDays = irradiationTime / 86400;
+        if (irradiationDays > 7) {
+            riskScore += 1;
+        }
+        if (irradiationDays > 30) {
+            riskScore += 1;
+        }
+
+        // High reaction rate = more product = more potential impurities
+        if (reactionRate > 1e12) {
+            riskScore += 1;
+        }
+
+        // Threshold reactions may have additional activation products
+        if (route.reaction_type === 'n,p' || route.reaction_type === 'n,2n') {
+            riskScore += 1;
+        }
+
+        // Classify risk
+        if (riskScore <= 2) {
+            return 'low';
+        } else if (riskScore <= 4) {
+            return 'moderate';
+        } else {
+            return 'high';
+        }
+    },
+
+    /**
+     * Assess impurity trap risks
+     * Checks for long-lived impurities and chemical inseparability
+     * 
+     * @param {Object} route - Route object
+     * @returns {Array<Object>} Array of impurity trap warnings {type: string, severity: string, message: string}
+     */
+    assessImpurityTraps: function(route) {
+        const traps = [];
+        const productHalfLife = route.product_half_life_days;
+
+        if (!route.known_impurity_risks || route.known_impurity_risks.length === 0) {
+            return traps;
+        }
+
+        // Known long-lived impurity patterns (inferred from common nuclear data)
+        // These are heuristics based on typical impurity behavior
+        const longLivedPatterns = [
+            /Mo-100/,  // Very long-lived
+            /Sr-90/,   // Very long-lived
+            /Co-60/,   // Long-lived
+            /Lu-178/,  // Long-lived relative to Lu-177
+            /W-188/,   // Long-lived
+            /Ni-59/,   // Very long-lived
+            /Cu-65/,   // Stable
+            /Zn-67/,   // Long-lived
+            /Ho-166/,  // Long-lived
+            /Tm-170/,  // Long-lived
+            /Bi-210/,  // Long-lived
+            /Tl-204/   // Long-lived
+        ];
+
+        // Check each known impurity
+        route.known_impurity_risks.forEach(impurity => {
+            // Check for long-lived impurities (half-life >> product half-life)
+            const isLongLived = longLivedPatterns.some(pattern => pattern.test(impurity));
+            
+            if (isLongLived && productHalfLife < 10) {
+                // Product half-life < 10 days and impurity is long-lived
+                traps.push({
+                    type: 'long_lived_impurity',
+                    severity: 'high',
+                    message: `Long-lived impurity identified: ${impurity}. Impurity half-life significantly exceeds product half-life (${productHalfLife.toFixed(2)} days). May accumulate over multiple production cycles.`
+                });
+            } else if (isLongLived && productHalfLife < 30) {
+                // Product half-life < 30 days and impurity is long-lived
+                traps.push({
+                    type: 'long_lived_impurity',
+                    severity: 'moderate',
+                    message: `Long-lived impurity identified: ${impurity}. Impurity half-life exceeds product half-life (${productHalfLife.toFixed(2)} days). Consider decay time before reuse.`
+                });
+            }
+
+            // Check for chemically similar impurities (inferred from element)
+            // Same element = potential chemical inseparability risk
+            const productElement = route.product_isotope.split('-')[0];
+            const impurityElement = impurity.match(/([A-Z][a-z]?)-?\d+/);
+            if (impurityElement && impurityElement[1] === productElement) {
+                traps.push({
+                    type: 'chemical_inseparability',
+                    severity: 'high',
+                    message: `Chemically similar impurity: ${impurity}. Same element as product (${productElement}) may complicate chemical separation.`
+                });
+            }
+        });
+
+        // Check if route requires n.c.a. but has many impurities
+        if (!route.carrier_added_acceptable && route.known_impurity_risks.length >= 3) {
+            traps.push({
+                type: 'nca_impurity_burden',
+                severity: 'moderate',
+                message: `No-carrier-added route with multiple impurity risks (${route.known_impurity_risks.length} identified). High-purity chemistry required.`
+            });
+        }
+
+        return traps;
+    },
+
+    /**
+     * Classify route feasibility
+     * 
+     * @param {Object} route - Route object
+     * @param {number} reactionRate - Production reaction rate (reactions/s)
+     * @param {number} activity - Product activity (Bq)
+     * @param {number} specificActivity - Specific activity (Bq/g)
+     * @param {string} impurityRiskLevel - Impurity risk level
+     * @returns {Object} {classification: string, reasons: string[]}
+     */
+    classifyRouteFeasibility: function(route, reactionRate, activity, specificActivity, impurityRiskLevel) {
+        const reasons = [];
+        let classification = 'Feasible';
+
+        // Check reaction rate (too low = not feasible)
+        if (reactionRate < 1e6) {
+            classification = 'Not recommended';
+            reasons.push('Reaction rate too low for practical production');
+        }
+
+        // Check activity (too low = not feasible)
+        const activity_GBq = activity / 1e9;
+        if (activity_GBq < 0.1) {
+            classification = 'Not recommended';
+            reasons.push('Product activity too low (< 0.1 GBq)');
+        }
+
+        // Check specific activity requirements
+        if (!route.carrier_added_acceptable) {
+            // n.c.a. routes need high specific activity
+            if (specificActivity < 1e12) { // Bq/g
+                classification = 'Feasible with constraints';
+                reasons.push('Specific activity may be insufficient for n.c.a. requirements');
+            }
+        }
+
+        // Check impurity risk
+        if (impurityRiskLevel === 'high') {
+            if (classification === 'Feasible') {
+                classification = 'Feasible with constraints';
+            }
+            reasons.push('High impurity risk requires careful chemistry');
+        }
+
+        // Check chemical separability
+        if (!route.chemical_separability) {
+            classification = 'Not recommended';
+            reasons.push('Chemical separation not feasible');
+        }
+
+        // Check threshold reactions (may require special facilities)
+        if (route.reaction_type === 'n,p' || route.reaction_type === 'n,2n') {
+            if (classification === 'Feasible') {
+                classification = 'Feasible with constraints';
+            }
+            reasons.push('Requires fast neutron source or accelerator');
+        }
+
+        // Check alpha particle reactions (require charged particle accelerator)
+        if (route.reaction_type === 'alpha') {
+            if (classification === 'Feasible') {
+                classification = 'Feasible with constraints';
+            }
+            reasons.push('Requires charged particle accelerator');
+        }
+
+        // If no reasons, add positive note
+        if (reasons.length === 0 && classification === 'Feasible') {
+            reasons.push('Route meets all feasibility criteria');
+        }
+
+        return {
+            classification: classification,
+            reasons: reasons
+        };
     }
 };
 

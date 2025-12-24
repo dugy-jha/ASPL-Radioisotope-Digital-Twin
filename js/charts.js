@@ -23,6 +23,8 @@ const Charts = {
         this.initWaterfallChart('chartWaterfall');
         this.initTransportChart('chartTransport');
         this.initUncertaintyChart('chartUncertainty');
+        this.initComparativeActivityChart('chartComparativeActivity');
+        this.initComparativeSpecificActivityChart('chartComparativeSpecificActivity');
     },
 
     /**
@@ -155,7 +157,7 @@ const Charts = {
         ];
 
         const layout = this.getLayout(
-            'Parent–Daughter Activity vs Time',
+            'Parent–Daughter Activity vs Time (Including Post-EOB)',
             'Time (days)',
             'Activity (Bq)'
         );
@@ -392,5 +394,175 @@ const Charts = {
             ]
         };
         Plotly.restyle(containerId, update);
+    },
+
+    // ============================================================================
+    // COMPARATIVE ANALYTICS CHARTS
+    // ============================================================================
+
+    /**
+     * Initialize comparative activity vs time chart
+     */
+    initComparativeActivityChart: function(containerId) {
+        const data = [];
+
+        const layout = this.getLayout(
+            'Comparative Activity vs Irradiation Time (Analytical Comparison)',
+            'Irradiation Time (days)',
+            'Activity (GBq)'
+        );
+        layout.legend = { x: 0.7, y: 0.95 };
+        layout.annotations = [{
+            text: 'Analytical comparison only - not production predictions',
+            xref: 'paper',
+            yref: 'paper',
+            x: 0.5,
+            y: -0.15,
+            xanchor: 'center',
+            showarrow: false,
+            font: { size: 10, color: '#6c757d', style: 'italic' }
+        }];
+
+        Plotly.newPlot(containerId, data, layout, this.getConfig());
+    },
+
+    /**
+     * Update comparative activity chart with multiple routes
+     */
+    updateComparativeActivityChart: function(containerId, routesData) {
+        const data = routesData.map((route, index) => {
+            const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6'];
+            const riskColors = {
+                'Low': '#2ecc71',
+                'Medium': '#f39c12',
+                'High': '#e74c3c'
+            };
+            
+            const lineColor = riskColors[route.impurity_risk] || colors[index % colors.length];
+            const lineWidth = route.impurity_risk === 'High' ? 3 : route.impurity_risk === 'Medium' ? 2.5 : 2;
+            const lineStyle = route.impurity_risk === 'High' ? 'dash' : 'solid';
+
+            return {
+                x: route.timeData,
+                y: route.activityData,
+                type: 'scatter',
+                mode: 'lines',
+                name: route.label,
+                line: { 
+                    color: lineColor, 
+                    width: lineWidth,
+                    dash: lineStyle
+                },
+                hovertemplate: `<b>${route.label}</b><br>` +
+                    `Time: %{x:.2f} days<br>` +
+                    `Activity: %{y:.2f} GBq<br>` +
+                    `Impurity Risk: ${route.impurity_risk}<extra></extra>`
+            };
+        });
+
+        const layout = this.getLayout(
+            'Comparative Activity vs Irradiation Time (Analytical Comparison)',
+            'Irradiation Time (days)',
+            'Activity (GBq)'
+        );
+        layout.legend = { x: 0.7, y: 0.95 };
+        layout.margin = { l: 70, r: 30, t: 50, b: 80 };
+        layout.annotations = [{
+            text: 'Analytical comparison only - not production predictions',
+            xref: 'paper',
+            yref: 'paper',
+            x: 0.5,
+            y: -0.12,
+            xanchor: 'center',
+            showarrow: false,
+            font: { size: 10, color: '#6c757d', style: 'italic' }
+        }];
+
+        Plotly.newPlot(containerId, data, layout, this.getConfig());
+    },
+
+    /**
+     * Initialize comparative specific activity vs flux chart
+     */
+    initComparativeSpecificActivityChart: function(containerId) {
+        const data = [];
+
+        const layout = this.getLayout(
+            'Comparative Specific Activity vs Flux (Analytical Comparison)',
+            'Neutron Flux (cm⁻² s⁻¹)',
+            'Specific Activity (TBq/g)'
+        );
+        layout.xaxis.type = 'log';
+        layout.yaxis.type = 'log';
+        layout.legend = { x: 0.7, y: 0.95 };
+        layout.annotations = [{
+            text: 'Analytical comparison only - not production predictions',
+            xref: 'paper',
+            yref: 'paper',
+            x: 0.5,
+            y: -0.15,
+            xanchor: 'center',
+            showarrow: false,
+            font: { size: 10, color: '#6c757d', style: 'italic' }
+        }];
+
+        Plotly.newPlot(containerId, data, layout, this.getConfig());
+    },
+
+    /**
+     * Update comparative specific activity chart with multiple routes
+     */
+    updateComparativeSpecificActivityChart: function(containerId, routesData) {
+        const data = routesData.map((route, index) => {
+            const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6'];
+            const riskColors = {
+                'Low': '#2ecc71',
+                'Medium': '#f39c12',
+                'High': '#e74c3c'
+            };
+            
+            const lineColor = riskColors[route.impurity_risk] || colors[index % colors.length];
+            const lineWidth = route.impurity_risk === 'High' ? 3 : route.impurity_risk === 'Medium' ? 2.5 : 2;
+            const lineStyle = route.impurity_risk === 'High' ? 'dash' : 'solid';
+
+            return {
+                x: route.fluxData,
+                y: route.specificActivityData,
+                type: 'scatter',
+                mode: 'lines',
+                name: route.label,
+                line: { 
+                    color: lineColor, 
+                    width: lineWidth,
+                    dash: lineStyle
+                },
+                hovertemplate: `<b>${route.label}</b><br>` +
+                    `Flux: %{x:.2e} cm⁻² s⁻¹<br>` +
+                    `Specific Activity: %{y:.2f} TBq/g<br>` +
+                    `Impurity Risk: ${route.impurity_risk}<extra></extra>`
+            };
+        });
+
+        const layout = this.getLayout(
+            'Comparative Specific Activity vs Flux (Analytical Comparison)',
+            'Neutron Flux (cm⁻² s⁻¹)',
+            'Specific Activity (TBq/g)'
+        );
+        layout.xaxis.type = 'log';
+        layout.yaxis.type = 'log';
+        layout.legend = { x: 0.7, y: 0.95 };
+        layout.margin = { l: 70, r: 30, t: 50, b: 80 };
+        layout.annotations = [{
+            text: 'Analytical comparison only - not production predictions',
+            xref: 'paper',
+            yref: 'paper',
+            x: 0.5,
+            y: -0.12,
+            xanchor: 'center',
+            showarrow: false,
+            font: { size: 10, color: '#6c757d', style: 'italic' }
+        }];
+
+        Plotly.newPlot(containerId, data, layout, this.getConfig());
     }
 };
