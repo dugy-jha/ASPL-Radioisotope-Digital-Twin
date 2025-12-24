@@ -367,12 +367,6 @@ const AdvancedPhysics = {
      * @returns {Object} {mean: number, std: number, samples: Array<number>, percentiles: Object}
      */
     monteCarloUncertainty: function(deterministicKernel, nominalParams, uncertainties, n_samples, randomGenerator) {
-        // Warning: Monte Carlo uncertainty represents parameter uncertainty only
-        if (typeof console !== 'undefined' && console.warn) {
-            console.warn('Monte Carlo uncertainty represents parameter uncertainty only. ' +
-                        'Structural model errors (flux geometry, spectra, burn-up physics) are NOT included.');
-        }
-        
         if (n_samples <= 0) {
             throw new Error('Number of samples must be positive');
         }

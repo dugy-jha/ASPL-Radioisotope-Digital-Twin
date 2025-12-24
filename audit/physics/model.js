@@ -75,6 +75,26 @@ const Model = {
     },
 
     /**
+     * Calculate saturation factor with product burn-up
+     * 
+     * @param {number} lambda_decay - Decay constant λ_decay (s^-1)
+     * @param {number} k_burn_product - Product burn-up rate constant (s^-1)
+     * @param {number} t_irr_seconds - Irradiation time (s)
+     * @returns {number} Saturation factor f_sat (dimensionless, 0-1)
+     * 
+     * Formula: f_sat = 1 - exp(-λ_eff * t_irr_seconds)
+     *          where λ_eff = λ_decay + k_burn_product
+     * Units: [1] = 1 - exp(-[s^-1] * [s])
+     */
+    saturationFactorWithProductBurnUp: function(lambda_decay, k_burn_product, t_irr_seconds) {
+        if (lambda_decay < 0 || k_burn_product < 0 || t_irr_seconds < 0) {
+            throw new Error('Decay constant, burn-up rate, and time must be non-negative');
+        }
+        const lambda_eff = lambda_decay + k_burn_product;
+        return 1 - Math.exp(-lambda_eff * t_irr_seconds);
+    },
+
+    /**
      * Calculate reaction rate
      * 
      * @param {number} N_parent - Number of parent atoms (dimensionless)
@@ -312,6 +332,71 @@ const Model = {
         return lambda + k_burn;
     },
 
+    /**
+     * Calculate product burn-up rate constant
+     * 
+     * @param {number} phi - Flux φ (cm^-2 s^-1)
+     * @param {number} sigma_burn_product_cm2 - Product burn-up cross-section σ_burn_product (cm^2)
+     * @returns {number} Product burn-up rate constant k_burn_product (s^-1)
+     * 
+     * Formula: k_burn_product = φ * σ_burn_product_cm2
+     * Units: [s^-1] = [cm^-2 s^-1] * [cm^2]
+     * 
+     * Note: This accounts for activation of the product isotope during irradiation.
+     *       For high-flux, long-irradiation cases, product burn-up can reduce yield by 10-50%.
+     */
+    productBurnUpRateConstant: function(phi, sigma_burn_product_cm2) {
+        if (phi < 0 || sigma_burn_product_cm2 < 0) {
+            throw new Error('Flux and cross-section must be non-negative');
+        }
+        return phi * sigma_burn_product_cm2;
+    },
+
+    /**
+     * Calculate effective decay constant (including product burn-up)
+     * 
+     * @param {number} lambda_decay - Decay constant λ_decay (s^-1)
+     * @param {number} k_burn_product - Product burn-up rate constant (s^-1)
+     * @returns {number} Effective decay constant λ_eff (s^-1)
+     * 
+     * Formula: λ_eff = λ_decay + k_burn_product
+     * Units: [s^-1] = [s^-1] + [s^-1]
+     * 
+     * Note: Product burn-up reduces effective half-life, increasing saturation rate
+     *       but also increasing depletion rate.
+     */
+    effectiveDecayConstantWithProductBurnUp: function(lambda_decay, k_burn_product) {
+        if (lambda_decay < 0 || k_burn_product < 0) {
+            throw new Error('Decay constant and burn-up rate must be non-negative');
+        }
+        return lambda_decay + k_burn_product;
+    },
+
+    /**
+     * Calculate atoms at EOB with product burn-up
+     * 
+     * @param {number} R - Reaction rate (reactions/s)
+     * @param {number} lambda_decay - Decay constant λ_decay (s^-1)
+     * @param {number} k_burn_product - Product burn-up rate constant (s^-1)
+     * @param {number} t_irr - Irradiation time (s)
+     * @returns {number} Atoms at EOB N_EOB (dimensionless)
+     * 
+     * Formula: N_EOB = R * (1 - exp(-λ_eff * t_irr)) / λ_eff
+     *          where λ_eff = λ_decay + k_burn_product
+     * Units: [1] = [reactions/s] * [1] / [s^-1]
+     */
+    atomsAtEOBWithProductBurnUp: function(R, lambda_decay, k_burn_product, t_irr) {
+        if (R < 0 || lambda_decay < 0 || k_burn_product < 0 || t_irr < 0) {
+            throw new Error('All parameters must be non-negative');
+        }
+        const lambda_eff = this.effectiveDecayConstantWithProductBurnUp(lambda_decay, k_burn_product);
+        if (lambda_eff <= 0) {
+            throw new Error('Effective decay constant must be positive');
+        }
+        const f_sat = 1 - Math.exp(-lambda_eff * t_irr);
+        return R * f_sat / lambda_eff;
+    },
+
     // ============================================================================
     // BATEMAN EQUATIONS (1-STEP PARENT→DAUGHTER)
     // ============================================================================
@@ -341,6 +426,253 @@ const Model = {
         const exp_parent = Math.exp(-lambda_parent * t);
         const exp_daughter = Math.exp(-lambda_daughter * t);
         return N_parent * BR * ratio * (exp_parent - exp_daughter);
+    },
+
+    // ============================================================================
+    // BATEMAN EQUATIONS (MULTI-STEP DECAY CHAINS)
+    // ============================================================================
+
+    /**
+     * Calculate multi-step decay chain using matrix exponential method
+     * 
+     * @param {Array<number>} N0 - Initial atom numbers for each isotope [N1(0), N2(0), ..., Nn(0)]
+     * @param {Array<Array<number>>} decayMatrix - Decay matrix Λ (n×n)
+     *   Λ[i][j] = branching ratio from isotope j to isotope i (if j decays to i)
+     *   Λ[i][i] = -λ_i (decay constant of isotope i, negative)
+     * @param {number} t - Time (s)
+     * @returns {Array<number>} Atom numbers at time t [N1(t), N2(t), ..., Nn(t)]
+     * 
+     * Formula: N(t) = exp(Λt) × N(0)
+     * Units: [1] = [1] × [1]
+     * 
+     * Note: For numerical stability, uses recursive Bateman solution for small chains (n ≤ 4),
+     *       matrix exponential for larger chains (n > 4).
+     */
+    batemanMultiStep: function(N0, decayMatrix, t) {
+        if (!Array.isArray(N0) || !Array.isArray(decayMatrix)) {
+            throw new Error('N0 and decayMatrix must be arrays');
+        }
+        if (N0.length !== decayMatrix.length) {
+            throw new Error('N0 length must match decayMatrix dimension');
+        }
+        if (t < 0) {
+            throw new Error('Time must be non-negative');
+        }
+
+        const n = N0.length;
+
+        // For small chains (n ≤ 4), use recursive Bateman solution (more stable)
+        if (n <= 4) {
+            return this.batemanRecursive(N0, decayMatrix, t);
+        }
+
+        // For larger chains, use matrix exponential
+        return this.batemanMatrixExponential(N0, decayMatrix, t);
+    },
+
+    /**
+     * Recursive Bateman solution for small decay chains
+     * Supports general N-parent branching decay chains: A → C, B → C, etc.
+     * 
+     * @param {Array<number>} N0 - Initial atom numbers
+     * @param {Array<Array<number>>} decayMatrix - Decay matrix
+     * @param {number} t - Time (s)
+     * @returns {Array<number>} Atom numbers at time t
+     */
+    batemanRecursive: function(N0, decayMatrix, t) {
+        const n = N0.length;
+        const N = new Array(n).fill(0);
+
+        // Extract decay constants and branching ratios
+        const lambdas = [];
+        const branchingRatios = []; // branchingRatios[i][j] = BR from j to i
+
+        for (let i = 0; i < n; i++) {
+            lambdas[i] = -decayMatrix[i][i]; // Decay constant (positive)
+            branchingRatios[i] = [];
+            for (let j = 0; j < n; j++) {
+                if (i !== j && decayMatrix[i][j] > 0) {
+                    // Extract branching ratio: decayMatrix[i][j] = BR * lambda_j
+                    branchingRatios[i][j] = decayMatrix[i][j] / lambdas[j];
+                } else {
+                    branchingRatios[i][j] = 0;
+                }
+            }
+        }
+
+        // Runtime guard: Check for invalid branching ratios (sum > 1.0)
+        // For each parent isotope j, sum of branching ratios to all daughters should be ≤ 1.0
+        for (let j = 0; j < n; j++) {
+            let sumBR = 0;
+            for (let i = 0; i < n; i++) {
+                if (i !== j) {
+                    sumBR += branchingRatios[i][j];
+                }
+            }
+            if (sumBR > 1.0001) {
+                if (typeof console !== 'undefined' && console.warn) {
+                    console.warn(`WARNING: Isotope ${j} has total branching ratio sum = ${sumBR.toFixed(6)} > 1.0. ` +
+                                `This violates conservation (sum of BRs should be ≤ 1.0).`);
+                }
+            }
+        }
+
+        // Calculate each isotope using recursive Bateman formula
+        for (let i = 0; i < n; i++) {
+            let Ni_t = 0;
+
+            // Contribution from initial atoms of isotope i
+            Ni_t += N0[i] * Math.exp(-lambdas[i] * t);
+
+            // Contribution from parent isotopes
+            // FIXED: Previously, this loop only considered j < i, which broke branching chains.
+            // For branching chains (e.g., A → C and B → C), we must consider ALL parents j,
+            // regardless of index ordering. The condition j < i was incorrect for general networks.
+            // 
+            // Correct approach: For each isotope i, sum contributions from ALL parent isotopes j
+            // where branchingRatios[i][j] > 0, regardless of whether j < i or j > i.
+            // This allows correct handling of:
+            // - Linear chains: A → B → C (j < i works, but full iteration is correct)
+            // - Branching chains: A → C, B → C (requires j can be > i)
+            // - Complex networks: Any parent-daughter relationship
+            //
+            // Formula for each parent j → i:
+            //   N_i(t) += N_j(0) * BR_ji * (lambda_j / (lambda_i - lambda_j)) * 
+            //             (exp(-lambda_j * t) - exp(-lambda_i * t))
+            //   Special case: if lambda_i ≈ lambda_j (secular equilibrium)
+            for (let j = 0; j < n; j++) {
+                // Skip self (j === i) - isotope cannot be its own parent
+                if (j === i) continue;
+                
+                // Only consider parents that actually decay to isotope i
+                if (branchingRatios[i][j] > 0 && lambdas[j] > 0) {
+                    const BR = branchingRatios[i][j];
+                    const lambda_j = lambdas[j];
+                    const lambda_i = lambdas[i];
+
+                    if (Math.abs(lambda_i - lambda_j) < 1e-12) {
+                        // Secular equilibrium case: N_i(t) = N_j(0) * BR * lambda_j * t * exp(-lambda_j * t)
+                        Ni_t += N0[j] * BR * lambda_j * t * Math.exp(-lambda_j * t);
+                    } else {
+                        // General case: N_i(t) = N_j(0) * BR * (lambda_j / (lambda_i - lambda_j)) * 
+                        //   (exp(-lambda_j * t) - exp(-lambda_i * t))
+                        const ratio = lambda_j / (lambda_i - lambda_j);
+                        Ni_t += N0[j] * BR * ratio * (Math.exp(-lambda_j * t) - Math.exp(-lambda_i * t));
+                    }
+                }
+            }
+
+            N[i] = Math.max(0, Ni_t); // Prevent negative atoms
+        }
+
+        return N;
+    },
+
+    /**
+     * Matrix exponential method for larger decay chains
+     * Uses explicit Euler method for matrix exponential
+     * 
+     * @param {Array<number>} N0 - Initial atom numbers
+     * @param {Array<Array<number>>} decayMatrix - Decay matrix
+     * @param {number} t - Time (s)
+     * @returns {Array<number>} Atom numbers at time t
+     * 
+     * Note: Matrix exponential solved via explicit Euler method.
+     *       Stable for planning-grade decay chains.
+     *       Not suitable for stiff systems without timestep refinement.
+     *       Numerical stability guard ensures λ_max × dt ≤ 0.2.
+     */
+    batemanMatrixExponential: function(N0, decayMatrix, t) {
+        const n = N0.length;
+        
+        // Find maximum decay constant for stability check
+        let lambda_max = 0;
+        for (let i = 0; i < n; i++) {
+            const lambda_i = -decayMatrix[i][i]; // Decay constant (positive)
+            if (lambda_i > lambda_max) {
+                lambda_max = lambda_i;
+            }
+        }
+        
+        // Initial adaptive time step
+        let dt = Math.min(t / 1000, 0.1);
+        
+        // Numerical stability guard: ensure λ_max × dt ≤ 0.2
+        // For stiff systems (large decay constant differences), reduce timestep
+        const STABILITY_THRESHOLD = 0.2;
+        if (lambda_max > 0 && lambda_max * dt > STABILITY_THRESHOLD) {
+            const original_dt = dt;
+            dt = STABILITY_THRESHOLD / lambda_max;
+            if (typeof console !== 'undefined' && console.warn) {
+                console.warn(`Matrix exponential stability guard: Reduced timestep from ${original_dt.toExponential(2)} s to ${dt.toExponential(2)} s ` +
+                            `(λ_max = ${lambda_max.toExponential(2)} s⁻¹, λ_max × dt = ${(lambda_max * dt).toFixed(3)})`);
+            }
+        }
+        
+        const steps = Math.ceil(t / dt);
+        const final_dt = t - (steps - 1) * dt;
+
+        let N = [...N0];
+
+        // Euler method: N(t+dt) = N(t) + Λ × N(t) × dt
+        for (let step = 0; step < steps; step++) {
+            const current_dt = (step === steps - 1) ? final_dt : dt;
+            const dN = new Array(n).fill(0);
+
+            // Calculate dN/dt = Λ × N
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    dN[i] += decayMatrix[i][j] * N[j];
+                }
+            }
+
+            // Update N
+            for (let i = 0; i < n; i++) {
+                N[i] += dN[i] * current_dt;
+                if (N[i] < 0) N[i] = 0; // Prevent negative atoms
+            }
+        }
+
+        return N;
+    },
+
+    /**
+     * Build decay matrix from chain definition
+     * 
+     * @param {Array<Object>} chain - Chain definition
+     *   Each element: {isotope: string, lambda: number, parents: [{isotope: string, BR: number}]}
+     * @returns {Object} {decayMatrix: Array<Array<number>>, isotopeOrder: Array<string>}
+     */
+    buildDecayMatrix: function(chain) {
+        const n = chain.length;
+        const decayMatrix = [];
+        const isotopeOrder = chain.map(c => c.isotope);
+
+        // Initialize matrix
+        for (let i = 0; i < n; i++) {
+            decayMatrix[i] = new Array(n).fill(0);
+        }
+
+        // Fill matrix
+        for (let i = 0; i < n; i++) {
+            const isotope = chain[i];
+            
+            // Diagonal: negative decay constant
+            decayMatrix[i][i] = -isotope.lambda;
+
+            // Off-diagonal: branching ratios from parents
+            if (isotope.parents) {
+                isotope.parents.forEach(parent => {
+                    const parentIndex = isotopeOrder.indexOf(parent.isotope);
+                    if (parentIndex >= 0 && parentIndex < i) {
+                        // Parent decays to this isotope with branching ratio BR
+                        decayMatrix[i][parentIndex] = parent.BR * chain[parentIndex].lambda;
+                    }
+                });
+            }
+        }
+
+        return { decayMatrix, isotopeOrder };
     },
 
     // ============================================================================

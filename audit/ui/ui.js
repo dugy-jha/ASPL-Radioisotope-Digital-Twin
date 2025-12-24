@@ -69,8 +69,20 @@ const UI = {
         // Get all input elements
         const inputs = document.querySelectorAll('#controls input, #controls select');
         inputs.forEach(input => {
-            input.addEventListener('input', () => this.updateAllCharts());
-            input.addEventListener('change', () => this.updateAllCharts());
+            input.addEventListener('input', () => {
+                this.updateAllCharts();
+                // If application context changed, update route explorer
+                if (input.id === 'applicationContext') {
+                    this.populateRouteExplorer();
+                }
+            });
+            input.addEventListener('change', () => {
+                this.updateAllCharts();
+                // If application context changed, update route explorer
+                if (input.id === 'applicationContext') {
+                    this.populateRouteExplorer();
+                }
+            });
         });
 
         // Route registry tabs
@@ -651,11 +663,15 @@ const UI = {
         const failures = [];
         const warnings = [];
 
-        // Regulatory metadata definitions
+        // Regulatory metadata definitions with threshold justification
+        // Acceptance thresholds are planning-level interpretations of guidance, not regulatory approval criteria
         const regulatoryRules = {
             radionuclidic_purity: {
                 code: 'AERB/RF-R/SC-1',
                 description: 'Radioisotope Production Purity',
+                threshold_value: 0.999, // 99.9%
+                threshold_source: 'IAEA TRS-469 (Production and quality control of medical radioisotopes), Ph. Eur. monographs (European Pharmacopoeia)',
+                threshold_justification: 'Planning-level interpretation: Medical radioisotopes typically require ≥99.9% radionuclidic purity per IAEA TRS-469 and Ph. Eur. monographs. This threshold is conservative for planning purposes.',
                 iaea_alignment: [
                     { code: 'IAEA SRS-63', description: 'Quality assurance for radionuclidic purity' },
                     { code: 'IAEA TRS-469', description: 'Production and quality control of medical radioisotopes' }
@@ -664,6 +680,9 @@ const UI = {
             impurity_fraction: {
                 code: 'AERB/RF-R/SC-1',
                 description: 'Radioisotope Production Purity',
+                threshold_value: 0.001, // 0.1%
+                threshold_source: 'IAEA TRS-469, Ph. Eur. monographs',
+                threshold_justification: 'Planning-level interpretation: Impurity fraction ≤0.1% aligns with medical radioisotope quality requirements. This threshold is conservative for planning purposes.',
                 iaea_alignment: [
                     { code: 'IAEA SRS-63', description: 'Quality assurance for radionuclidic purity' },
                     { code: 'IAEA TRS-469', description: 'Production and quality control of medical radioisotopes' }
@@ -672,6 +691,9 @@ const UI = {
             thermal_derate: {
                 code: 'AERB/RF-R/SC-2',
                 description: 'Thermal Safety Limits',
+                threshold_value: 0.8, // 80%
+                threshold_source: 'IAEA NP-T-5.1 (Thermal-hydraulic safety principles), operational planning heuristic',
+                threshold_justification: 'Planning-level interpretation: Thermal derating ≥80% ensures adequate safety margin for thermal-hydraulic limits. The 80% threshold provides conservative operational margin per IAEA NP-T-5.1 guidance.',
                 iaea_alignment: [
                     { code: 'IAEA NP-T-5.1', description: 'Thermal-hydraulic safety principles' },
                     { code: 'IAEA SSG-30', description: 'Safety of research reactors' }
@@ -680,6 +702,9 @@ const UI = {
             damage_derate: {
                 code: 'AERB/RF-R/SC-3',
                 description: 'Radiation Damage Limits',
+                threshold_value: 0.8, // 80%
+                threshold_source: 'IAEA TRS-429 (Radiation damage to reactor materials), operational planning heuristic',
+                threshold_justification: 'Planning-level interpretation: Damage derating ≥80% ensures adequate safety margin for radiation damage limits. The 80% threshold provides conservative operational margin per IAEA TRS-429 guidance.',
                 iaea_alignment: [
                     { code: 'IAEA TRS-429', description: 'Radiation damage to reactor materials' },
                     { code: 'IAEA NP-T-3.13', description: 'Materials for nuclear power plants' }
@@ -688,6 +713,9 @@ const UI = {
             temperature_rise: {
                 code: 'AERB/RF-R/SC-2',
                 description: 'Thermal Safety Limits',
+                threshold_value: null, // Uses deltaT_max from user input
+                threshold_source: 'IAEA NP-T-5.1 (Thermal-hydraulic safety principles)',
+                threshold_justification: 'Planning-level interpretation: Temperature rise must not exceed material-specific limits. Threshold is user-defined based on target material properties and cooling system design.',
                 iaea_alignment: [
                     { code: 'IAEA NP-T-5.1', description: 'Thermal-hydraulic safety principles' },
                     { code: 'IAEA SSG-30', description: 'Safety of research reactors' }
@@ -696,6 +724,9 @@ const UI = {
             delivery_fraction: {
                 code: 'AERB/RF-R/SC-4',
                 description: 'Activity Delivery Requirements',
+                threshold_value: 0.7, // 70%
+                threshold_source: 'Operational planning heuristic, IAEA TRS-469',
+                threshold_justification: 'Planning-level interpretation: Delivery fraction ≥70% ensures adequate activity after chemistry and transport delays. This threshold is an operational planning heuristic based on typical production logistics.',
                 iaea_alignment: [
                     { code: 'IAEA TRS-469', description: 'Production and quality control of medical radioisotopes' },
                     { code: 'IAEA SSG-46', description: 'Radiation protection in radioisotope production' }
@@ -704,6 +735,9 @@ const UI = {
             total_uncertainty: {
                 code: 'AERB/RF-R/SC-5',
                 description: 'Uncertainty Quantification',
+                threshold_value: 0.30, // 30%
+                threshold_source: 'IAEA TRS-457 (Uncertainty analysis in reactor physics calculations), planning-grade model heuristic',
+                threshold_justification: 'Planning-level interpretation: Total uncertainty ≤30% is acceptable for planning-grade models. This threshold aligns with IAEA TRS-457 guidance for planning studies. Production models may require tighter uncertainty bounds.',
                 iaea_alignment: [
                     { code: 'IAEA TRS-457', description: 'Uncertainty analysis in reactor physics calculations' },
                     { code: 'IAEA TECDOC-1901', description: 'Uncertainty quantification in nuclear data' }
@@ -1030,9 +1064,13 @@ const UI = {
                                          (target_molar_mass / lu_atoms_per_molecule);
 
         // Calculate flux from source strength
-        // For point source at distance d: flux = source_strength / (4π * d²)
-        // Account for moderator efficiency
-        const flux_at_target = (source_strength * moderator_efficiency) / (4 * Math.PI * target_distance_cm * target_distance_cm);
+        // Test case aligned with core solid-angle flux model: φ = (S × Ω) / A_target
+        // Use same Ω expression as main model: Ω = 2π(1 − d / sqrt(d² + r²))
+        const Omega = Model.solidAngle(target_distance_cm, target_radius_cm);
+        const A_target = Math.PI * target_radius_cm * target_radius_cm;
+        // Account for moderator efficiency (applied to source strength)
+        const effective_source_strength = source_strength * moderator_efficiency;
+        const flux_at_target = Model.fluxFromSolidAngle(effective_source_strength, Omega, A_target);
 
         // Set input values
         document.getElementById('halfLife').value = half_life_days;
@@ -1906,6 +1944,7 @@ const UI = {
         const enrichment = this.getParam('enrichment', 1.0);
         const irradiationTime = this.getParam('irradiationTime', 7) * 86400; // Convert days to seconds
         const selfShieldingFactor = 1.0; // Default
+        const applicationContext = document.getElementById('applicationContext') ? document.getElementById('applicationContext').value : 'medical';
 
         return {
             neutronFlux: neutronFlux,
@@ -1913,7 +1952,8 @@ const UI = {
             targetMass: targetMass,
             enrichment: enrichment,
             irradiationTime: irradiationTime,
-            selfShieldingFactor: selfShieldingFactor
+            selfShieldingFactor: selfShieldingFactor,
+            applicationContext: applicationContext
         };
     },
 
@@ -2115,18 +2155,21 @@ const UI = {
         limitations.forEach(lim => {
             const severityClass = `limitation-${lim.severity}`;
             const severityLabel = lim.severity.charAt(0).toUpperCase() + lim.severity.slice(1);
+            const statusLabel = lim.status || 'Known – Not Implemented';
             
             html += `
                 <div class="limitation-item ${severityClass}">
                     <div class="limitation-header">
                         <h3>${lim.title}</h3>
                         <span class="limitation-severity">${severityLabel} Severity</span>
+                        <span class="limitation-status">${statusLabel}</span>
                     </div>
                     <div class="limitation-content">
                         <p><strong>Description:</strong> ${lim.description}</p>
                         <p><strong>Impact:</strong> ${lim.impact}</p>
                         <p><strong>Category:</strong> ${lim.category}</p>
                         ${lim.affects ? `<p><strong>Affects:</strong> ${lim.affects.join(', ')}</p>` : ''}
+                        ${lim.estimated_impact_magnitude ? `<p><strong>Estimated Impact Magnitude:</strong> ${lim.estimated_impact_magnitude}</p>` : ''}
                     </div>
                 </div>
             `;

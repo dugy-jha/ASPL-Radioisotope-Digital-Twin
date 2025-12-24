@@ -1,322 +1,266 @@
-# Audit Snapshot: Generic Radioisotope Production Digital Twin
-
-**Audit Date:** 2024  
-**Version:** 1.1.0 (Post-Audit Closure)  
-**Status:** Frozen Audit Snapshot
+# Generic Radioisotope Production Digital Twin
+## Frozen Audit Snapshot (v2.2.0)
 
 ---
 
-## Scope of the Digital Twin
+## 1. Purpose of This Audit Snapshot
 
-This digital twin provides deterministic physics-based calculations for radioisotope production via neutron activation and charged-particle reactions. The system models:
+This directory contains a **frozen, read-only snapshot** of the Generic Radioisotope Production Digital Twin implementation, organized for independent technical, numerical, and regulatory review.
 
-- **Radioactive decay:** Single-step Bateman equations for parent→daughter decay chains
-- **Neutron activation:** Thermal and fast neutron reactions (n,γ), (n,p), (n,2n), (n,d)
-- **Charged-particle reactions:** Alpha particle activation (planning estimates)
-- **Production physics:** Reaction rates, saturation factors, burn-up, self-shielding
-- **Engineering constraints:** Thermal limits, radiation damage accumulation
-- **Logistics:** Post-irradiation decay during processing and transport
-- **Uncertainty propagation:** Root-sum-square (RSS) methods for uncorrelated parameters
-- **Route evaluation:** Feasibility assessment and comparative scoring for multiple production routes
-- **Regulatory alignment:** Acceptance checks aligned with AERB and IAEA guidance (planning-level)
-- **D-T Generator Classification:** Baseline feasibility analysis for deuterium-tritium neutron generator routes
-
-### System Boundaries
-
-**Included:**
-- Deterministic physics calculations with explicit formulas
-- Single-step decay chains (parent→daughter)
-- Point source geometry assumptions (point isotropic source + solid-angle interception)
-- Uniform target density assumptions
-- Constant flux/beam current assumptions
-- Uncorrelated uncertainty propagation
-- Actual atomic masses (NIST/IUPAC standard atomic weights)
-- Quantitative impurity assessment (when cross-section data available)
-- Optional energy-dependent cross-section scaling for threshold reactions
-
-**Not Included:**
-- Multi-step decay chains (beyond parent→daughter)
-- Spatial flux gradients
-- Time-varying flux/beam current
-- Product burn-up during irradiation
-- Annealing effects
-- Correlated uncertainty analysis
-- Facility-specific engineering details
-- Regulatory licensing or approval processes
-- Epithermal resonance integrals (single thermal cross-section used)
-- Detailed thermal gradients (uniform temperature assumed)
+**Important Notes:**
+- This snapshot is intended for audit and review purposes only
+- This is **not** a production system or deployment package
+- This is **not** a licensing submission or regulatory approval document
+- Code in this directory must not be edited or modified
+- All findings should reference original source files in the main codebase
+- This snapshot reflects the implementation state at a specific point in time
 
 ---
 
-## Assumptions
+## 2. Scope of the Digital Twin
 
-### Physics Assumptions
+### What the Model DOES
 
-1. **Point source geometry:** Neutron/particle sources are treated as point sources emitting isotropically
-2. **Solid-angle interception:** Flux calculated using `φ = (S × Ω) / A_target` where Ω is target solid angle
-3. **Uniform target density:** Target material has uniform atomic density (no spatial variation)
-4. **Constant flux/beam:** Neutron flux and beam current are constant during irradiation (no time dependence)
-5. **Single-step decay:** Only parent→daughter decay chains modeled (no multi-step chains)
-6. **Uniform temperature:** No spatial temperature gradients (conservative assumption)
-7. **No annealing:** Radiation damage accumulates linearly (no recovery)
-8. **Uncorrelated uncertainties:** Parameter uncertainties are uncorrelated (RSS propagation valid)
-9. **Actual atomic masses:** Uses NIST/IUPAC standard atomic weights (not isotopic mass excess)
-10. **Step-function threshold:** Cross-section = 0 below threshold, constant above (optional energy scaling available)
-11. **No product burn-up:** Product isotope does not undergo further activation (valid for low-flux cases)
+The Generic Radioisotope Production Digital Twin provides deterministic, physics-first calculations for:
 
-### Nuclear Data Assumptions
+- **Radioisotope production** via neutron activation and charged-particle reactions
+- **Decay physics**: Single-step and multi-step Bateman decay chains (including branching networks)
+- **Burn-up effects**: Parent target burn-up and product isotope burn-up (when cross-section data provided)
+- **Flux models**: Constant, time-dependent (duty-cycle, ramp, step), and spatial flux distributions
+- **Geometry**: Solid-angle flux calculations, self-shielding, circular target integration
+- **Epithermal resonance integrals**: Thermal and epithermal neutron contributions
+- **Chemistry and logistics**: Decay during processing delays, chemistry yield losses, transport decay
+- **Uncertainty propagation**: Parametric Monte Carlo uncertainty (root-sum-square for deterministic)
+- **Route evaluation**: Feasibility classification for isotope production routes
+- **Route scoring**: Comparative metrics for D–T neutron generator concepts
 
-1. **Planning-grade cross-sections:** Cross-section values are conservative planning estimates
-2. **No evaluated libraries:** Values are not from evaluated nuclear data libraries (ENDF/B-VIII, TENDL)
-3. **No accuracy claims:** Cross-section values are suitable for planning only, not validated against experimental data
-4. **Standard atomic weights:** Uses standard atomic weights (weighted averages of natural isotopes), not isotopic masses
-5. **Impurity cross-sections:** Uses planning-grade estimates or defaults to 10% of product cross-section if unavailable
+### What the Model DOES NOT Do
 
-### Engineering Assumptions
+The following capabilities are **explicitly excluded** from this digital twin:
 
-1. **Thermal-hydraulic:** Simple heat transfer model (ΔT = P/(ṁ × C_p))
-2. **Damage accumulation:** Linear DPA accumulation (no annealing)
-3. **Self-shielding:** Simplified self-shielding factor calculation
-4. **No spatial gradients:** Uniform temperature and damage distribution assumed
-
-### Regulatory Assumptions
-
-1. **Planning-level analysis:** All regulatory alignments are for planning purposes only
-2. **No licensing:** System does not constitute regulatory approval or facility licensing
-3. **Acceptance criteria:** Thresholds are planning guidelines, not regulatory requirements
-4. **AERB/IAEA alignment:** Citations indicate alignment with guidance documents, not approval
+- **Neutron transport solvers**: No MCNP, Serpent, OpenMC, or other transport code implementation
+  - Export interfaces provided for external transport solvers
+- **CFD solvers**: No Computational Fluid Dynamics implementation
+  - Thermal boundary conditions can be exported for external CFD tools
+- **Facility licensing**: No safety case generation or licensing approval
+- **Economic optimization**: No cost modeling or business case analysis
+- **Production guarantees**: No yield guarantees or facility performance commitments
 
 ---
 
-## Planning-Grade vs Validated Components
+## 3. Physics & Numerical Assumptions
 
-### Planning-Grade (Not Validated)
+The following explicit assumptions are made throughout the model:
 
-**Nuclear Data:**
-- Cross-section values in `isotopeRoutes.js` are conservative planning estimates
-- Threshold energies are planning estimates where not verified
-- Impurity cross-sections use planning estimates or heuristic defaults
-- Atomic masses are standard atomic weights (not isotopic mass excess)
-- Energy-dependent cross-section scaling uses empirical exponents (n = 1.5 for n,p, n = 2.0 for n,2n)
+### Flux and Geometry
+- **Point-source flux input**: Flux is provided as an input parameter, not calculated from transport
+- **Uniform target density**: Target atom density is assumed uniform throughout target volume
+- **Circular target geometry**: Spatial flux integration assumes circular, radially symmetric targets
+- **Solid-angle interception**: Flux calculation uses solid-angle geometry for point sources
 
-**Route Evaluations:**
-- Feasibility classifications are analytical assessments
-- Impurity risk assessments use qualitative heuristics (quantitative when data available)
-- Route scoring is a comparative overlay (not validated against production data)
-- D-T generator classifications are logical categorizations (no facility design)
+### Nuclear Data
+- **Planning-grade cross-sections**: Cross-section values are conservative estimates, not evaluated library values
+- **No energy-dependent cross-sections**: Single cross-section value per reaction (except optional threshold scaling)
+- **No resonance structure**: Epithermal resonance integrals are effective values, not detailed resonance structure
 
-**Regulatory Alignment:**
-- AERB and IAEA citations indicate alignment with guidance documents
-- Acceptance criteria are planning thresholds, not regulatory requirements
-- No claims of regulatory approval or licensing
+### Numerical Methods
+- **Deterministic calculations**: All physics is deterministic (Monte Carlo is parametric uncertainty only)
+- **Euler-based methods**: Matrix exponential uses explicit Euler method with stability guard
+- **Trapezoidal integration**: Time-dependent flux uses trapezoidal rule for numerical integration
+- **Adaptive timesteps**: Numerical integration uses adaptive timesteps for stability
 
-### Validated Components
-
-**Physics Formulas:**
-- Decay constant: λ = ln(2) / T₁/₂ (standard radioactive decay)
-- Saturation factor: f_sat = 1 - exp(-λt) (standard activation equation)
-- Reaction rate: R = N × σ × φ × f_shield (standard activation rate)
-- Bateman equations: Single-step parent→daughter (standard decay chain)
-- Self-shielding: f_shield = (1 - exp(-Σd)) / (Σd) (standard approximation)
-- Solid angle: Ω = 2π(1 - d / sqrt(d² + r²)) (geometric calculation)
-
-**Unit Consistency:**
-- All formulas maintain explicit unit consistency
-- Unit conversions are explicit and documented
-- Calculations are deterministic (no randomness)
-
-**Test Cases:**
-- Lu-177 validation case verified against order-of-magnitude expectations
-- Mo-99 → Tc-99m validation case verified against expected decay behavior
-- Unit consistency verified through test case execution
-- Atomic mass corrections verified (eliminates 1.5-2× systematic errors)
+### Coupling and Feedback
+- **No feedback loops**: No coupling between damage, flux, and cross-sections
+- **Linear damage accumulation**: DPA accumulation is linear, no annealing effects
+- **Bulk thermal model**: Temperature rise is bulk calculation, no spatial gradients
 
 ---
 
-## Running Validation Test Cases
+## 4. Planning-Grade vs Validated Components
+
+### Planning-Grade Components (Conservative Estimates)
+
+These components use conservative, planning-level values and should not be treated as validated nuclear data:
+
+- **Cross-sections** (`nominal_sigma_barns`): Conservative lower-bound or mid-range estimates
+- **Flux values**: User-provided or estimated values
+- **Burn-up coefficients** (`sigma_product_burn_cm2`): Optional, data-dependent
+- **Impurity estimates**: Qualitative and quantitative assessments based on planning-grade cross-sections
+- **Thermal derating**: Simplified bulk temperature rise model
+- **Damage rates**: Linear DPA accumulation estimates
+
+### Validated / Analytically Correct Components
+
+These components implement standard physics equations with verified dimensional consistency:
+
+- **Decay equations**: `λ = ln(2) / T_half` (standard definition)
+- **Bateman formulations**: General N-parent branching decay networks (v2.2.0)
+- **Unit consistency**: All equations verified for dimensional correctness
+- **Reaction-rate formulations**: `R = N × σ × φ × f_shield` (standard definition)
+- **Conservation logic**: Atom conservation in decay chains, branching ratio validation
+- **Saturation factors**: `f_sat = 1 - exp(-λt)` (analytically correct)
+- **Self-shielding**: `f_shield = (1 - exp(-Σd)) / (Σd)` (standard formulation)
+
+---
+
+## 5. How to Run Validation Testcases
 
 ### Lu-177 Validation Test Case
 
-**Purpose:** Validates no-carrier-added Lu-177 production via Lu-176(n,γ)Lu-177 reaction
+**Purpose:** Validate n.c.a. Lu-177 production via Lu-176(n,γ)Lu-177 reaction under thermal neutron conditions.
 
-**How to Run:**
-1. Open `index.html` in a web browser
-2. Click the "Load Lu-177 Test Case" button in the Input Parameters section
-3. Check browser console (F12 → Console) for validation output
-4. Review calculated values in the Results section
+**Location:** Test case parameters are defined in `ui.js` function `loadLu177TestCase()`.
 
-**Expected Behavior:**
-- Decay constant λ ≈ 1.21e-6 s⁻¹
-- Saturation factor at 5 days ≈ 0.40–0.45
-- Activity at EOB ≈ tens to low hundreds of GBq
-- Delivered activity ≈ ~90% of EOB activity
-- No thermal derating triggered
-- No damage derating triggered
-- Console output shows "Lu-177 Validation: PASS" if all checks pass
-- **Atomic mass:** Uses actual Lu atomic mass (174.97 amu) instead of placeholder 100 amu
-
-**Test Parameters:**
+**Parameters:**
 - Half-life: 6.647 days
 - Cross-section: 2090 barns (thermal)
 - Enrichment: 0.75
-- Source strength: 1.0e13 neutrons/s
-- Target: Lu2O3 (9.42 g/cm³, 397.93 g/mol)
-- Irradiation time: 5.0 days
-- Non-limiting engineering parameters (high coolant flow, low damage rate)
+- Flux: 1.0e13 n/s source strength
+- Target: Lu2O3, 2.0 cm radius, 0.2 cm thickness
+- Irradiation: 5.0 days
 
-**Validation Notes:**
-- Test case now uses actual atomic masses (Lu: 174.97 amu)
-- Production yield calculations corrected for atomic mass (eliminates ~1.75× error)
-- Specific activity calculations corrected for atomic mass
+**Expected Outputs (Order-of-Magnitude):**
+- Decay constant λ ≈ 1.21e-6 s⁻¹
+- Saturation factor at 5 days ≈ 0.40–0.45
+- Flux at target ≈ 1e9 – 1e10 n/cm²/s
+- Activity at EOB ≈ tens to low hundreds of GBq
+- Delivered activity ≈ ~90% of EOB (after chemistry and transport)
+
+**Validation Criteria:**
+- Results within ±10% of expected order-of-magnitude
+- No thermal derating triggered
+- No damage derating triggered
+- Smooth exponential saturation behavior
+
+**Note:** These results are for **feasibility comparison only**, not yield guarantees. Actual production yields depend on facility-specific conditions.
+
+---
 
 ### Mo-99 → Tc-99m Generator Validation Test Case
 
-**Purpose:** Validates Mo-99 production and Tc-99m generator yield via Mo-98(n,γ)Mo-99 reaction
+**Purpose:** Validate parent-daughter Bateman decay chain behavior for generator systems.
 
-**How to Run:**
-1. Open `index.html` in a web browser
-2. Click the "Load Mo-99 → Tc-99m Generator Test Case" button in the Input Parameters section
-3. Review the Parent–Daughter Activity vs Time chart
-4. Check browser console for validation output
+**Location:** Test case parameters are defined in `ui.js` function `loadMo99ValidationCase()`.
 
-**Expected Behavior:**
-- Parent (Mo-99) activity builds up during irradiation
-- Daughter (Tc-99m) activity follows Bateman equation during irradiation
-- Post-EOB: Parent decays, daughter activity peaks then decays
-- Daughter activity evolution matches expected Bateman behavior
-- Console output confirms test case loaded
-- **Atomic mass:** Uses actual Mo atomic mass (95.95 amu) instead of placeholder 100 amu
-
-**Test Parameters:**
+**Parameters:**
 - Parent half-life: 2.75 days (Mo-99)
-- Daughter half-life: 0.25 days (Tc-99m, 6 hours)
+- Daughter half-life: 0.25 days (Tc-99m)
 - Branching ratio: 1.0
 - Cross-section: 0.13 barns (thermal)
 - Enrichment: 0.95
-- Neutron flux: 1×10¹⁴ cm⁻² s⁻¹
-- Irradiation time: 5.0 days
+- Flux: 1e14 n/cm²/s
+- Irradiation: 5 days
 
-**Validation Notes:**
-- Test case now uses actual atomic masses (Mo: 95.95 amu)
-- Production yield calculations corrected for atomic mass (eliminates ~1.05× error)
+**Expected Behavior:**
+- Parent activity builds up during irradiation
+- Daughter activity follows Bateman parent→daughter relationship
+- Post-EOB: Parent decays, daughter activity peaks then decays
+- Secular equilibrium approached for daughter
 
----
+**Validation Criteria:**
+- Parent-daughter activity ratio follows Bateman equation
+- Daughter activity peaks at expected time post-EOB
+- No numerical instabilities in decay chain calculation
 
-## File Organization
-
-### `/audit/physics/`
-- `model.js` - Core physics calculations (decay, activation, Bateman, thermal, damage, uncertainty)
-- `atomicMasses.js` - Atomic mass registry (NIST/IUPAC standard atomic weights)
-- `limitations.js` - Model limitations registry (explicit documentation of missing physics)
-
-### `/audit/routing/`
-- `routes.js` - Legacy isotope route registry (IsotopeRouteRegistry)
-- `isotopeRoutes.js` - Structured isotope route registry (ISOTOPE_ROUTES) with D-T generator classification
-- `routeEvaluator.js` - Route evaluation logic (feasibility, impurity traps, quantitative assessment)
-
-### `/audit/scoring/`
-- `routeScoring.js` - Route scoring overlay (deterministic scoring, 0-5 scale)
-
-### `/audit/regulatory/`
-- `ui.js` - Contains regulatory acceptance check logic (evaluateAcceptance function)
-  - AERB alignment codes (RF-R/SC-1 through RF-R/SC-5)
-  - IAEA alignment references
-  - Acceptance criteria thresholds
-
-### `/audit/ui/`
-- `ui.js` - User interface logic (input handling, chart updates, route explorer, limitations display)
-- `charts.js` - Plotly chart definitions (no physics calculations)
-
-### Root Audit Files
-- `index.html` - Main HTML structure
-- `css/style.css` - Styling definitions
-- `README_AUDIT.md` - This document
-- `AUDIT_CLOSURE.md` - Audit closure implementation summary
-- `INDEPENDENT_REVIEW.md` - Independent nuclear engineering review (2024)
+**Note:** This validates **decay chain physics**, not production yield guarantees.
 
 ---
 
-## Audit Closure Status
+## 6. Audit Rules
 
-**Version 1.1.0** includes the following audit closure improvements:
+### Code Integrity
+- **Code in `/audit` must not be edited**: This is a frozen snapshot
+- **All findings should reference original source files**: Use paths like `js/model.js`, not `audit/physics/model.js`
+- **Numerical discrepancies**: Cite specific equations, line numbers, and unit analysis
+- **Feature gaps**: Report as "out-of-scope" or "known limitation," not errors
 
-### Critical Issues (CLOSED):
-1. ✅ **Placeholder atomic masses replaced** - Uses actual NIST/IUPAC atomic masses
-2. ✅ **Flux calculation inconsistency fixed** - Documented point-source geometry model
+### Review Scope
+- **Physics correctness**: Verify equations match standard formulations
+- **Unit consistency**: Check dimensional analysis of all calculations
+- **Numerical stability**: Verify stability guards and integration methods
+- **Scope discipline**: Confirm no implicit claims of transport, CFD, or licensing
 
-### Moderate Issues (PARTIALLY ADDRESSED):
-3. ✅ **Energy-dependent cross-sections** - Optional feature (conservative default maintained)
-4. ✅ **Quantitative impurity assessment** - Implemented (qualitative fallback when data unavailable)
-
-### Documentation (COMPLETE):
-5. ✅ **Limitations registry** - 10 limitations explicitly documented
-6. ✅ **D-T generator classification** - All routes classified for feasibility analysis
-
-**Reference:** See `AUDIT_CLOSURE.md` for detailed implementation summary.
-
----
-
-## Notes for Auditors
-
-1. **No code modifications:** This is a frozen snapshot. Do not modify code logic.
-
-2. **Physics formulas are authoritative:** Formulas in `model.js` are documented as authoritative and should not be altered.
-
-3. **Planning values clearly marked:** All planning-grade nuclear data is marked with `data_quality: "planning-conservative"` and explanatory notes.
-
-4. **Regulatory disclaimers:** Multiple disclaimers throughout the codebase state that this is planning-level analysis, not regulatory approval.
-
-5. **Test case validation:** Test cases verify order-of-magnitude correctness, not exact experimental validation.
-
-6. **Deterministic calculations:** All calculations are deterministic (no randomness). Scoring is transparent with explicit thresholds.
-
-7. **Unit consistency:** All formulas maintain explicit unit documentation. Unit conversions are explicit.
-
-8. **Separation of concerns:** Physics (`model.js`) is separated from UI (`ui.js`) and charts (`charts.js`).
-
-9. **Atomic masses:** Uses standard atomic weights (not isotopic mass excess). For enriched targets, use specific isotope mass if available.
-
-10. **Flux geometry:** Uses point isotropic source + solid-angle interception model. Formula: `φ = (S × Ω) / A_target`.
+### Reporting Findings
+- **Critical issues**: Physics errors, unit inconsistencies, broken logic
+- **Moderate issues**: Numerical stability concerns, missing validation
+- **Minor issues**: Documentation clarity, code organization
+- **Out-of-scope**: Features explicitly excluded (transport, CFD, licensing)
 
 ---
 
-## Limitations and Disclaimers
+## 7. Version & Provenance
 
-- **Not a licensed facility:** This digital twin is not a licensed facility
-- **Planning tool only:** Intended for facility design and planning studies
-- **No regulatory approval:** Does not constitute regulatory approval or facility licensing
-- **No experimental validation:** Nuclear data values are planning estimates, not validated against experiments
-- **No commercial guarantees:** Does not guarantee production yields or commercial viability
-- **Simplified physics:** Uses simplified models (point source, uniform density, constant flux)
-- **Single-step decay only:** Multi-step decay chains beyond parent→daughter are not modeled
-- **No product burn-up:** Product isotope activation during irradiation is not modeled
-- **No spatial gradients:** Flux, temperature, and damage gradients are not modeled
-- **Planning-grade data:** All cross-sections and atomic masses are planning estimates
+**Version:** 2.2.0
 
----
+**Git Commit Hash:** 4799f41d1a8ff63255266cd85717a4857273ef67
 
-## Contact and Support
+**Commit Message:** v2.1.1: Numerical clarity & stability hardening (no physics change)
 
-For questions about this audit snapshot, refer to:
-- `AUDIT_CLOSURE.md` - Implementation summary
-- `INDEPENDENT_REVIEW.md` - Independent review findings
-- Main project documentation
+**Snapshot Date:** 2024-12-24
 
-**Important:** This audit snapshot is frozen. Do not modify code logic. For active development, use the main codebase outside the `/audit` directory.
+**Statement:** This snapshot reflects v2.2.0 exactly, including:
+- Multi-step Bateman decay chain fixes (branching support)
+- Product burn-up integration (data-dependent)
+- Numerical hygiene patches (v2.1.1)
+- All physics and numerical improvements
+
+**Note:** The git commit shown is from v2.1.1. The v2.2.0 changes (Bateman branching fix, product burn-up integration) are included in this snapshot but may not yet be committed.
 
 ---
 
-## Version History
+## 8. Directory Structure
 
-- **v1.1.0 (2024):** Post-audit closure snapshot
-  - Atomic masses corrected (NIST/IUPAC values)
-  - Flux calculation documented and consistent
-  - Optional energy-dependent cross-sections
-  - Quantitative impurity assessment
-  - Limitations registry added
-  - D-T generator classification added
+```
+/audit
+  /physics          - Core physics equations (decay, Bateman, burn-up, flux)
+  /routing          - Isotope route definitions and evaluation
+  /scoring          - Route scoring and ranking algorithms
+  /regulatory        - Limitations registry and regulatory metadata
+  /ui               - User interface and visualization
+  /data             - Atomic masses, constants, lookup tables
+  /tests            - Validation test case documentation
+  README_AUDIT.md   - This file
+```
 
-- **v1.0.0 (2024):** Initial audit snapshot
-  - Baseline physics implementation
-  - Route evaluation system
-  - Regulatory alignment framework
+---
+
+## 9. Key Files by Category
+
+### Physics Core
+- `physics/model.js` - Core physics equations (decay, reaction rates, Bateman, burn-up)
+- `physics/advancedPhysics.js` - Advanced features (time-dependent flux, spatial flux, epithermal, Monte Carlo)
+- `physics/solverInterfaces.js` - Export interfaces for external solvers (MCNP, CFD, SRIM)
+
+### Route Evaluation
+- `routing/isotopeRoutes.js` - Isotope production route registry
+- `routing/routeEvaluator.js` - Route feasibility evaluation and classification
+- `routing/routes.js` - Legacy route definitions (if present)
+
+### Scoring and Ranking
+- `scoring/routeScoring.js` - Route scoring algorithms and comparative metrics
+
+### Regulatory and Limitations
+- `regulatory/limitations.js` - Model limitations registry and scope boundaries
+
+### User Interface
+- `ui/index.html` - Main HTML structure
+- `ui/ui.js` - UI event handling and test case loaders
+- `ui/charts.js` - Plotly chart definitions
+- `ui/style.css` - CSS styling
+
+### Data
+- `data/atomicMasses.js` - Atomic mass lookup table
+
+---
+
+## 10. Contact and Attribution
+
+**Model Name:** Generic Radioisotope Production Digital Twin  
+**Version:** 2.2.0  
+**Purpose:** Planning-grade radioisotope production modeling for D–T neutron generator concepts  
+**License:** See main repository LICENSE file  
+**Disclaimer:** This is a planning tool only. No regulatory approval, licensing, or production guarantees are provided.
+
+---
+
+**End of Audit Snapshot Documentation**

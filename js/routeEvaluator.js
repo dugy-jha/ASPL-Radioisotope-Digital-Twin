@@ -14,6 +14,9 @@
  * - Regulatory flag = exploratory → Feasible with constraints
  */
 
+// Default chemistry separation yield (conservative estimate)
+const DEFAULT_CHEMISTRY_YIELD = 0.85;
+
 const RouteEvaluator = {
     /**
      * Extract element symbol from isotope string
@@ -250,6 +253,22 @@ const RouteEvaluator = {
         }
 
         // ============================================================================
+        // RESONANCE-DOMINATED ISOTOPE WARNING
+        // ============================================================================
+        
+        // Warn if resonance-dominated isotope is used with non-thermal spectrum
+        if (route.resonance_dominated === true) {
+            const fluxProfileType = modelState.fluxProfileType || 'constant'; // Default to constant if not specified
+            if (fluxProfileType !== 'pure_thermal') {
+                if (typeof console !== 'undefined' && console.warn) {
+                    console.warn(`Resonance-dominated isotope detected. ` +
+                               `Effective resonance integral approximation may misestimate yield by 2–5× for non-1/E spectra. ` +
+                               `Route: ${route.id}, Flux profile: ${fluxProfileType}`);
+                }
+            }
+        }
+
+        // ============================================================================
         // REACTION RATE CALCULATION
         // ============================================================================
         
@@ -273,8 +292,76 @@ const RouteEvaluator = {
         
         const t_irr = modelState.irradiationTime || 86400; // s
         const lambda = Model.decayConstant(route.product_half_life_days);
-        const f_sat = Model.saturationFactor(lambda, t_irr);
-        const N_EOB = Model.atomsAtEOB(reactionRate, f_sat, lambda);
+        
+        // Product burn-up physics: OPTIONAL and data-dependent
+        // Product burn-up occurs when the product isotope itself is activated during irradiation,
+        // reducing the effective yield. This is significant for high-flux, long-irradiation cases.
+        // 
+        // Conditional logic: Only apply product burn-up if cross-section data is available.
+        // If route.sigma_product_burn_cm2 is null or undefined, use standard decay-only physics.
+        // This preserves backward compatibility and allows routes without burn-up data to work normally.
+        let N_EOB;
+        let k_burn_product = 0;
+        
+        if (route.sigma_product_burn_cm2 !== null && route.sigma_product_burn_cm2 !== undefined && route.sigma_product_burn_cm2 > 0) {
+            // Product burn-up data available: compute burn-up rate constant with self-shielding
+            // v2.2.1: Now includes self-shielding for symmetric treatment with production reaction
+            
+            // Warn user about v2.2.1 change
+            if (typeof console !== 'undefined' && console.warn) {
+                console.warn(`Product burn-up now includes self-shielding (v2.2.1). Results may differ from v2.2.0 by 10–50% for thick or high-flux targets. Route: ${route.id}`);
+            }
+            
+            // Estimate product atom density and target thickness for self-shielding calculation
+            // Product atom density: approximate from reaction rate and saturation
+            // Use target density as base, estimate product concentration from production
+            const targetDensity_cm3 = modelState.targetDensity || 5e22; // Default: typical solid density (atoms/cm³)
+            // Estimate product density: N_product ≈ R × f_sat / λ, where f_sat ≈ 1 - exp(-λt)
+            const f_sat_approx = 1 - Math.exp(-lambda * t_irr);
+            const lambda_safe = Math.max(lambda, 1e-10); // Avoid division by zero
+            const N_product_approx = reactionRate * f_sat_approx / lambda_safe; // Approximate total product atoms
+            // Target volume estimate: V = target_mass / mass_density
+            // Mass density = (atomicMass / N_AVOGADRO) × targetDensity_cm3 (g/cm³)
+            const massDensity_g_cm3 = (atomicMass / N_AVOGADRO) * targetDensity_cm3;
+            const targetVolume_cm3 = massDensity_g_cm3 > 0 ? (targetMass / massDensity_g_cm3) : 1.0; // Approximate volume (cm³)
+            // Product density = N_product / V_target (assuming uniform distribution)
+            const productAtomDensity_cm3 = targetVolume_cm3 > 0 
+                ? Math.min(N_product_approx / targetVolume_cm3, targetDensity_cm3) // Clamp to target density
+                : targetDensity_cm3 * 0.1; // Fallback: 10% of target density
+            // Ensure non-negative
+            const productAtomDensity_cm3_clamped = Math.max(productAtomDensity_cm3, 0);
+            
+            // Estimate target thickness from target mass and density
+            // For planning-grade: use default thickness or estimate from geometry
+            const targetThickness_cm = modelState.targetThickness || 0.2; // Default: 0.2 cm (typical solid target)
+            
+            // Calculate product burn-up rate constant with self-shielding
+            k_burn_product = Model.productBurnUpRate(
+                effectiveFlux,
+                route.sigma_product_burn_cm2,
+                productAtomDensity_cm3_clamped,
+                targetThickness_cm
+            );
+            
+            // Warning: If burn-up dominates decay, yield will be strongly suppressed
+            if (k_burn_product > lambda) {
+                if (typeof console !== 'undefined' && console.warn) {
+                    console.warn(`Product burn-up dominates decay for route ${route.id}: ` +
+                                `k_burn_product (${k_burn_product.toExponential(2)} s⁻¹) > lambda_decay (${lambda.toExponential(2)} s⁻¹). ` +
+                                `Yield will be strongly suppressed.`);
+                }
+            }
+            
+            // Use product burn-up physics: atomsAtEOBWithProductBurnUp internally calculates
+            // effective decay constant λ_eff = λ_decay + k_burn_product and applies it to saturation
+            N_EOB = Model.atomsAtEOBWithProductBurnUp(reactionRate, lambda, k_burn_product, t_irr);
+        } else {
+            // No product burn-up data: use standard decay-only physics
+            // This is the default behavior for routes without burn-up cross-section data
+            const f_sat = Model.saturationFactor(lambda, t_irr);
+            N_EOB = Model.atomsAtEOB(reactionRate, f_sat, lambda);
+        }
+        
         const activity_EOB = Model.activity(lambda, N_EOB);
 
         // Calculate product mass for specific activity calculation
@@ -432,6 +519,62 @@ const RouteEvaluator = {
         
         if (reactionRate < 1e6) { // reactions/s
             warnings.push(`Low reaction rate (${reactionRate.toExponential(2)} reactions/s) - production may be inefficient`);
+        }
+
+        // ============================================================================
+        // DELIVERED ACTIVITY (after decay + transport + chemistry yield)
+        // ============================================================================
+        
+        // Calculate activity after decay during chemistry delay and transport
+        let activity_after_decay_transport = activity_EOB;
+        
+        // Apply decay during chemistry delay (if chemistry delay specified)
+        const chemistryDelay_hours = modelState.chemistryDelayHours || 0;
+        if (chemistryDelay_hours > 0) {
+            const t_chem = chemistryDelay_hours * 3600; // Convert to seconds
+            activity_after_decay_transport = activity_after_decay_transport * Math.exp(-lambda * t_chem);
+        }
+        
+        // Apply decay during transport (if transport time specified)
+        const transportTime_hours = modelState.transportTimeHours || 0;
+        if (transportTime_hours > 0) {
+            const t_transport = transportTime_hours * 3600; // Convert to seconds
+            activity_after_decay_transport = activity_after_decay_transport * Math.exp(-lambda * t_transport);
+        }
+        
+        // Apply chemistry yield if route is chemically separable
+        let activity_delivered = activity_after_decay_transport;
+        if (route.chemical_separable === true) {
+            // Use route-specific chemistry yield if provided, otherwise use default
+            const chemistry_yield = route.chemistry_yield !== undefined && route.chemistry_yield !== null
+                ? route.chemistry_yield
+                : DEFAULT_CHEMISTRY_YIELD;
+            
+            // Warn if default yield is applied
+            if (route.chemistry_yield === undefined || route.chemistry_yield === null) {
+                if (typeof console !== 'undefined' && console.warn) {
+                    console.warn(`No chemistry yield specified for route ${route.id}. Applying conservative default of 85%.`);
+                }
+            }
+            
+            // Apply chemistry yield using existing Model function
+            activity_delivered = Model.deliveredActivityWithChemistryYield(activity_after_decay_transport, chemistry_yield);
+        }
+
+        // ============================================================================
+        // HIGH-FLUX, LONG-IRRADIATION, THICK-TARGET WARNING
+        // ============================================================================
+        
+        // Warn if all three conditions are met: high flux, long irradiation, thick target
+        const irradiationTime_days = t_irr / 86400; // Convert seconds to days
+        const targetThickness_cm = modelState.targetThickness || 0.2; // Default: 0.2 cm (typical solid target)
+        
+        if (effectiveFlux > 1e14 && irradiationTime_days > 7 && targetThickness_cm > 0.2) {
+            if (typeof console !== 'undefined' && console.warn) {
+                console.warn(`High-flux, long-irradiation, thick-target regime detected. ` +
+                           `Even after v2.2.1 corrections, yields may be overestimated. ` +
+                           `(flux: ${effectiveFlux.toExponential(2)} cm⁻² s⁻¹, time: ${irradiationTime_days.toFixed(1)} days, thickness: ${targetThickness_cm.toFixed(2)} cm)`);
+            }
         }
 
         // ============================================================================

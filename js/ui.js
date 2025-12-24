@@ -987,7 +987,7 @@ const UI = {
                     <p><strong>Decay Constant:</strong> ${lambda.toExponential(2)} s⁻¹</p>
                     <p><strong>Saturation Factor:</strong> ${(f_sat * 100).toFixed(2)}%</p>
                     <p><strong>Atoms at EOB:</strong> ${N_EOB.toExponential(2)}</p>
-                    <p><strong>Activity at EOB:</strong> ${formatNumber(A_EOB)}</p>
+                    <p><strong>Activity at EOB:</strong> ${formatNumber(A_EOB)} (order-of-magnitude estimate)</p>
                     <p><strong>Geometric Efficiency:</strong> ${(eta * 100).toFixed(2)}%</p>
                     <p><strong>Self-Shielding Factor:</strong> ${(f_shield * 100).toFixed(2)}%</p>
                 </div>
@@ -1520,7 +1520,7 @@ const UI = {
                     </div>
                     <div class="route-detail-item">
                         <span class="route-detail-label">Activity (EOB)</span>
-                        <span class="route-detail-value">${activityDisplay}</span>
+                        <span class="route-detail-value">${activityDisplay} (order-of-magnitude estimate)</span>
                     </div>
                     <div class="route-detail-item">
                         <span class="route-detail-label">Specific Activity</span>
@@ -2205,6 +2205,18 @@ const UI = {
         }
     }
 };
+
+// ============================================================================
+// PLANNING-GRADE MODEL WARNING
+// ============================================================================
+// Execute once on script load to warn users about model limitations
+if (typeof console !== 'undefined' && console.warn) {
+    console.warn(
+        '⚠️ PLANNING-GRADE MODEL WARNING:\n' +
+        'This model is PLANNING-GRADE ONLY. Numerical outputs are order-of-magnitude estimates.\n' +
+        'Structural uncertainties (flux geometry, spectra, burn-up physics) may exceed parameter uncertainty bands.'
+    );
+}
 
 // Initialize UI when DOM is loaded
 if (document.readyState === 'loading') {

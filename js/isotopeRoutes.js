@@ -32,6 +32,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for 14.1 MeV neutrons. Actual values may vary with neutron energy spectrum.',
         product_isotope: 'Cu-67',
         product_half_life_days: 2.58,
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: false, // n.c.a. preferred
         impurity_risks: [
@@ -58,6 +59,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for 14.1 MeV neutrons. Threshold is very low, enabling production at moderate neutron energies.',
         product_isotope: 'Sc-47',
         product_half_life_days: 3.35,
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: false, // n.c.a. preferred
         impurity_risks: [
@@ -84,6 +86,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section and threshold are planning estimates. (n,d) reactions are less common than (n,p) and may have higher uncertainty.',
         product_isotope: 'Sc-47',
         product_half_life_days: 3.35,
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: false, // n.c.a. preferred
         impurity_risks: [
@@ -110,6 +113,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for 14.1 MeV neutrons. (n,2n) reactions typically have higher cross-sections than (n,p) at fast neutron energies.',
         product_isotope: 'Mo-99',
         product_half_life_days: 2.75,
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: true,
         carrier_mass: null, // Default: use target mass (conservative). Can be overridden with route-specific value.
@@ -141,8 +145,10 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for thermal neutron capture. Actual values depend on neutron spectrum and may be higher.',
         product_isotope: 'Ho-166',
         product_half_life_days: 1.12, // ~26.8 hours
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: false, // n.c.a. preferred
+        resonance_dominated: true, // Ho-165 has resonance-dominated capture
         impurity_risks: [
             'Ho-166m from Ho-165(n,γ)',
             'Dy-166 from Ho-166 decay',
@@ -167,8 +173,10 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for thermal neutron capture. Samarium has high neutron capture cross-sections due to resonance structure.',
         product_isotope: 'Sm-153',
         product_half_life_days: 1.93, // ~46.3 hours
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: false, // n.c.a. preferred
+        resonance_dominated: true, // Samarium isotopes have strong resonance structure
         impurity_risks: [
             'Sm-154 from Sm-153(n,γ)',
             'Pm-153 from Sm-153 decay',
@@ -193,8 +201,10 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for thermal neutron capture. Dysprosium-164 has one of the highest thermal capture cross-sections due to strong resonance.',
         product_isotope: 'Dy-165',
         product_half_life_days: 0.097, // ~2.33 hours
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: false, // n.c.a. preferred
+        resonance_dominated: true, // Dy-164 has strong resonance structure
         impurity_risks: [
             'Dy-166 from Dy-165(n,γ)',
             'Tb-165 from Dy-165 decay',
@@ -219,6 +229,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for thermal neutron capture. Rhenium has moderate thermal capture cross-sections.',
         product_isotope: 'Re-186',
         product_half_life_days: 3.72,
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: false, // n.c.a. preferred
         impurity_risks: [
@@ -245,6 +256,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for thermal neutron capture. Gold-197 has well-characterized capture cross-section suitable for planning studies.',
         product_isotope: 'Au-198',
         product_half_life_days: 2.7,
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: true,
         carrier_mass: null, // Default: use target mass (conservative). Can be overridden with route-specific value.
@@ -303,6 +315,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for thermal neutron capture. W-188 generator system requires long irradiation times due to parent half-life.',
         product_isotope: 'W-188',
         product_half_life_days: 69.4, // Parent half-life
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: false, // n.c.a. preferred
         impurity_risks: [
@@ -329,6 +342,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for thermal neutron capture. Sn-117m has low capture cross-section, requiring high flux for practical production.',
         product_isotope: 'Sn-117m',
         product_half_life_days: 13.6,
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: false, // n.c.a. preferred
         impurity_risks: [
@@ -359,6 +373,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section and threshold are planning estimates. This route is exploratory and subject to significant regulatory constraints. Ra-226 handling requires special facilities.',
         product_isotope: 'Ra-225', // Decays to Ac-225
         product_half_life_days: 14.9, // Ra-225 half-life
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: false, // n.c.a. required
         impurity_risks: [
@@ -391,6 +406,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for thermal neutron capture. Iridium-191 has one of the highest thermal capture cross-sections, enabling efficient production.',
         product_isotope: 'Ir-192',
         product_half_life_days: 73.8,
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: true,
         carrier_mass: null, // Default: use target mass (conservative). Can be overridden with route-specific value.
@@ -419,6 +435,7 @@ const ISOTOPE_ROUTES = [
         notes: 'Cross-section is a conservative planning estimate for thermal neutron capture. Co-60 production is well-established, but this value is for planning purposes only.',
         product_isotope: 'Co-60',
         product_half_life_days: 1925.0, // ~5.27 years
+        sigma_product_burn_cm2: null, // Optional microscopic cross-section for product isotope burn-up during irradiation (cm², already converted)
         chemical_separable: true,
         carrier_added_acceptable: true,
         carrier_mass: null, // Default: use target mass (conservative). Can be overridden with route-specific value.

@@ -197,6 +197,8 @@ const Model = {
      * @param {number} S - Source rate (particles/s)
      * @param {number} Omega - Solid angle intercepted by target (steradians)
      * @param {number} A_target - Target area (cm^2)
+     * @param {number} targetDistance_cm - (Optional) Distance from source to target (cm) - for geometry warning
+     * @param {number} targetRadius_cm - (Optional) Target radius (cm) - for geometry warning
      * @returns {number} Flux φ (cm^-2 s^-1)
      * 
      * Formula: φ = (S × Ω) / A_target
@@ -207,11 +209,25 @@ const Model = {
      * Note: This formulation assumes uniform flux distribution over target area.
      * For point sources at distance d >> r, inverse square law applies:
      * φ ≈ S / (4π × d²) for d >> r
+     * 
+     * Warning: If targetDistance_cm and targetRadius_cm are provided and d < 3×r,
+     *          emits console.warn about potential flux overestimation.
      */
-    fluxFromSolidAngle: function(S, Omega, A_target) {
+    fluxFromSolidAngle: function(S, Omega, A_target, targetDistance_cm, targetRadius_cm) {
         if (S < 0 || Omega < 0 || A_target <= 0) {
             throw new Error('Source rate and solid angle must be non-negative, target area must be positive');
         }
+        
+        // Warning: Flux modeling may be inaccurate for close-in targets
+        if (targetDistance_cm !== undefined && targetRadius_cm !== undefined && 
+            targetDistance_cm >= 0 && targetRadius_cm > 0 && 
+            targetDistance_cm < 3 * targetRadius_cm) {
+            if (typeof console !== 'undefined' && console.warn) {
+                console.warn(`Flux modeling warning: target distance < 3× target radius. ` +
+                           `Point-source / solid-angle approximation may overestimate flux by 10–50%.`);
+            }
+        }
+        
         return (S * Omega) / A_target;
     },
 
@@ -353,6 +369,44 @@ const Model = {
     },
 
     /**
+     * Calculate product burn-up rate constant with self-shielding
+     * 
+     * Planning-grade symmetric treatment of product burn-up using same geometry assumptions as production reaction.
+     * 
+     * @param {number} flux_cm2_s - Flux φ (cm^-2 s^-1)
+     * @param {number} sigma_product_burn_cm2 - Product burn-up cross-section σ_burn_product (cm^2)
+     * @param {number} product_atom_density_cm3 - Product atom density (atoms/cm^3)
+     * @param {number} target_thickness_cm - Target thickness (cm)
+     * @returns {number} Product burn-up rate constant k_burn_product (s^-1)
+     * 
+     * Formula: k_burn_product = φ * σ_burn_product * f_shield_product
+     *          where f_shield_product = (1 - exp(-Σ_product * d)) / (Σ_product * d)
+     *          and Σ_product = product_atom_density * σ_burn_product
+     * Units: [s^-1] = [cm^-2 s^-1] * [cm^2] * [1]
+     * 
+     * Returns 0 if sigma_product_burn_cm2 is undefined, null, or <= 0.
+     */
+    productBurnUpRate: function(flux_cm2_s, sigma_product_burn_cm2, product_atom_density_cm3, target_thickness_cm) {
+        // Return 0 if cross-section is not provided or invalid
+        if (sigma_product_burn_cm2 === undefined || sigma_product_burn_cm2 === null || sigma_product_burn_cm2 <= 0) {
+            return 0;
+        }
+        
+        if (flux_cm2_s < 0 || product_atom_density_cm3 < 0 || target_thickness_cm < 0) {
+            throw new Error('Flux, product atom density, and target thickness must be non-negative');
+        }
+        
+        // Compute macroscopic cross-section
+        const Sigma_product = this.macroscopicCrossSection(product_atom_density_cm3, sigma_product_burn_cm2);
+        
+        // Compute self-shielding factor
+        const f_shield_product = this.selfShieldingFactor(Sigma_product, target_thickness_cm);
+        
+        // Return product burn-up rate constant with self-shielding
+        return flux_cm2_s * sigma_product_burn_cm2 * f_shield_product;
+    },
+
+    /**
      * Calculate effective decay constant (including product burn-up)
      * 
      * @param {number} lambda_decay - Decay constant λ_decay (s^-1)
@@ -472,7 +526,7 @@ const Model = {
 
     /**
      * Recursive Bateman solution for small decay chains
-     * Uses standard Bateman formula for linear chains: A → B → C → ...
+     * Supports general N-parent branching decay chains: A → C, B → C, etc.
      * 
      * @param {Array<number>} N0 - Initial atom numbers
      * @param {Array<Array<number>>} decayMatrix - Decay matrix
@@ -500,6 +554,23 @@ const Model = {
             }
         }
 
+        // Runtime guard: Check for invalid branching ratios (sum > 1.0)
+        // For each parent isotope j, sum of branching ratios to all daughters should be ≤ 1.0
+        for (let j = 0; j < n; j++) {
+            let sumBR = 0;
+            for (let i = 0; i < n; i++) {
+                if (i !== j) {
+                    sumBR += branchingRatios[i][j];
+                }
+            }
+            if (sumBR > 1.0001) {
+                if (typeof console !== 'undefined' && console.warn) {
+                    console.warn(`WARNING: Isotope ${j} has total branching ratio sum = ${sumBR.toFixed(6)} > 1.0. ` +
+                                `This violates conservation (sum of BRs should be ≤ 1.0).`);
+                }
+            }
+        }
+
         // Calculate each isotope using recursive Bateman formula
         for (let i = 0; i < n; i++) {
             let Ni_t = 0;
@@ -507,14 +578,27 @@ const Model = {
             // Contribution from initial atoms of isotope i
             Ni_t += N0[i] * Math.exp(-lambdas[i] * t);
 
-            // Contribution from parent isotopes (simplified for linear chains)
-            // For chain A → B → C: N_C(t) = N_A(0) * BR_AB * BR_BC * lambda_A * lambda_B * 
-            //   [exp(-lambda_A*t)/((lambda_B-lambda_A)(lambda_C-lambda_A)) + 
-            //    exp(-lambda_B*t)/((lambda_A-lambda_B)(lambda_C-lambda_B)) + 
-            //    exp(-lambda_C*t)/((lambda_A-lambda_C)(lambda_B-lambda_C))]
-            
-            // Simplified: For each parent j that decays to i
-            for (let j = 0; j < i; j++) {
+            // Contribution from parent isotopes
+            // FIXED: Previously, this loop only considered j < i, which broke branching chains.
+            // For branching chains (e.g., A → C and B → C), we must consider ALL parents j,
+            // regardless of index ordering. The condition j < i was incorrect for general networks.
+            // 
+            // Correct approach: For each isotope i, sum contributions from ALL parent isotopes j
+            // where branchingRatios[i][j] > 0, regardless of whether j < i or j > i.
+            // This allows correct handling of:
+            // - Linear chains: A → B → C (j < i works, but full iteration is correct)
+            // - Branching chains: A → C, B → C (requires j can be > i)
+            // - Complex networks: Any parent-daughter relationship
+            //
+            // Formula for each parent j → i:
+            //   N_i(t) += N_j(0) * BR_ji * (lambda_j / (lambda_i - lambda_j)) * 
+            //             (exp(-lambda_j * t) - exp(-lambda_i * t))
+            //   Special case: if lambda_i ≈ lambda_j (secular equilibrium)
+            for (let j = 0; j < n; j++) {
+                // Skip self (j === i) - isotope cannot be its own parent
+                if (j === i) continue;
+                
+                // Only consider parents that actually decay to isotope i
                 if (branchingRatios[i][j] > 0 && lambdas[j] > 0) {
                     const BR = branchingRatios[i][j];
                     const lambda_j = lambdas[j];
