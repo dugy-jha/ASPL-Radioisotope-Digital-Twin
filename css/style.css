@@ -1,0 +1,346 @@
+/**
+ * style.css
+ * Professional styling for Generic Radioisotope Production Digital Twin
+ * Regulator-grade visual design
+ */
+
+/* ============================================================================
+   RESET AND BASE STYLES
+   ============================================================================ */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    line-height: 1.6;
+    color: #2c3e50;
+    background-color: #f8f9fa;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #ffffff;
+    min-height: 100vh;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================================================
+   HEADER
+   ============================================================================ */
+
+header {
+    text-align: center;
+    padding: 40px 20px;
+    border-bottom: 3px solid #34495e;
+    margin-bottom: 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+}
+
+header h1 {
+    font-size: 2.5em;
+    font-weight: 700;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.subtitle {
+    font-size: 1.1em;
+    opacity: 0.95;
+    font-weight: 300;
+}
+
+.overview {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    font-size: 0.95em;
+    line-height: 1.6;
+    opacity: 0.9;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ============================================================================
+   MAIN CONTENT SECTIONS
+   ============================================================================ */
+
+main {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+}
+
+section {
+    background-color: #ffffff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e9ecef;
+}
+
+section h2 {
+    color: #2c3e50;
+    margin-bottom: 25px;
+    font-size: 1.8em;
+    border-bottom: 3px solid #3498db;
+    padding-bottom: 10px;
+    font-weight: 600;
+}
+
+/* ============================================================================
+   CONTROLS SECTION
+   ============================================================================ */
+
+.controls-section {
+    background-color: #f8f9fa;
+}
+
+.control-group {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.control-group:last-child {
+    border-bottom: none;
+}
+
+.control-group h3 {
+    color: #2c3e50;
+    font-size: 1.2em;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.input-row {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.input-row label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #34495e;
+    font-size: 0.95em;
+}
+
+.input-row input[type="number"],
+.input-row input[type="text"],
+.input-row select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #bdc3c7;
+    border-radius: 4px;
+    font-size: 0.95em;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    background-color: #ffffff;
+}
+
+.input-row input:focus,
+.input-row select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.input-hint {
+    display: block;
+    margin-top: 6px;
+    color: #7f8c8d;
+    font-size: 0.85em;
+    font-style: italic;
+}
+
+/* ============================================================================
+   EQUATIONS SECTION
+   ============================================================================ */
+
+.equations-section {
+    background-color: #ffffff;
+}
+
+.equation-display {
+    padding: 25px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    min-height: 150px;
+    border: 1px solid #e9ecef;
+}
+
+.equation-display p {
+    margin-bottom: 15px;
+    line-height: 1.8;
+}
+
+/* ============================================================================
+   CHARTS SECTION
+   ============================================================================ */
+
+.charts-section {
+    background-color: #ffffff;
+}
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.chart-container {
+    width: 100%;
+    height: 400px;
+    background-color: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.chart {
+    width: 100%;
+    height: 100%;
+}
+
+/* ============================================================================
+   RESULTS SECTION
+   ============================================================================ */
+
+.results-section {
+    background-color: #ffffff;
+}
+
+.results-display {
+    padding: 25px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    min-height: 150px;
+    border: 1px solid #e9ecef;
+}
+
+.result-summary {
+    line-height: 1.8;
+}
+
+.result-summary h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 1.3em;
+}
+
+.result-summary p {
+    margin-bottom: 10px;
+}
+
+.result-summary strong {
+    color: #34495e;
+    font-weight: 600;
+}
+
+/* ============================================================================
+   FOOTER
+   ============================================================================ */
+
+/* ============================================================================
+   EXPLANATIONS SECTION
+   ============================================================================ */
+
+.explanations-section {
+    background-color: #ffffff;
+}
+
+.explanation-block {
+    margin-bottom: 25px;
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-left: 4px solid #3498db;
+    border-radius: 4px;
+}
+
+.explanation-block:last-child {
+    margin-bottom: 0;
+}
+
+.explanation-block h3 {
+    color: #2c3e50;
+    font-size: 1.2em;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.explanation-block p {
+    color: #34495e;
+    line-height: 1.7;
+    margin: 0;
+}
+
+/* ============================================================================
+   FOOTER
+   ============================================================================ */
+
+footer {
+    text-align: center;
+    padding: 30px 20px;
+    margin-top: 50px;
+    border-top: 2px solid #e9ecef;
+    color: #7f8c8d;
+    font-size: 0.9em;
+    line-height: 1.6;
+}
+
+footer p {
+    margin-bottom: 10px;
+}
+
+footer p:last-child {
+    margin-bottom: 0;
+}
+
+/* ============================================================================
+   RESPONSIVE DESIGN
+   ============================================================================ */
+
+@media (max-width: 768px) {
+    .container {
+        padding: 10px;
+    }
+
+    header h1 {
+        font-size: 2em;
+    }
+
+    section {
+        padding: 20px;
+    }
+
+    .chart-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .chart-container {
+        height: 400px;
+    }
+}
+
+@media (max-width: 480px) {
+    header h1 {
+        font-size: 1.6em;
+    }
+
+    section h2 {
+        font-size: 1.4em;
+    }
+
+    .chart-container {
+        height: 300px;
+    }
+}

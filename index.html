@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generic Radioisotope Production Digital Twin</title>
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    
+    <!-- MathJax -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <!-- 1. TITLE + OVERVIEW -->
+        <header>
+            <h1>Generic Radioisotope Production Digital Twin</h1>
+            <p class="subtitle">Regulator-Grade Physics-First Engineering Model</p>
+            <div class="overview">
+                <p>This digital twin models radioisotope production through neutron activation and charged-particle reactions. 
+                All calculations are based on first-principles physics with explicit uncertainty propagation. 
+                The model accounts for decay chains, burn-up, thermal limits, radiation damage, and operational delays.</p>
+            </div>
+        </header>
+
+        <main>
+            <!-- 2. PHYSICS FOUNDATIONS -->
+            <section id="equations" class="equations-section">
+                <h2>Physics Foundations</h2>
+                <div id="equationDisplay" class="equation-display">
+                    <p><strong>Decay Constant:</strong> $\lambda = \frac{\ln(2)}{T_{1/2}}$</p>
+                    <p><strong>Saturation Factor:</strong> $f_{sat} = 1 - e^{-\lambda t_{irr}}$</p>
+                    <p><strong>Reaction Rate:</strong> $R = N_{parent} \cdot \sigma \cdot \phi \cdot f_{shield}$</p>
+                    <p><strong>Atoms at EOB:</strong> $N_{EOB} = \frac{R \cdot f_{sat}}{\lambda}$</p>
+                    <p><strong>Activity:</strong> $A = \lambda \cdot N$</p>
+                    <p><strong>Self-Shielding:</strong> $f_{shield} = \frac{1 - e^{-\Sigma \cdot d}}{\Sigma \cdot d}$</p>
+                    <p><strong>Effective Decay Constant:</strong> $\lambda_{eff} = \lambda + k_{burn}$</p>
+                    <p><strong>Bateman Equation:</strong> $N_d(t) = N_p \cdot BR \cdot \frac{\lambda_p}{\lambda_d - \lambda_p} \left(e^{-\lambda_p t} - e^{-\lambda_d t}\right)$</p>
+                </div>
+            </section>
+
+            <!-- 3. INPUT CONTROL PANEL -->
+            <section id="controls" class="controls-section">
+                <h2>Simulation Parameters</h2>
+                
+                <div class="control-group">
+                    <h3>Nuclear Parameters</h3>
+                    <div class="input-row">
+                        <label for="halfLife">Half-Life (days):</label>
+                        <input type="number" id="halfLife" value="1.0" step="0.1" min="0.001">
+                        <small class="input-hint">Parent isotope half-life</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="crossSection">Cross-Section (cm²):</label>
+                        <input type="number" id="crossSection" value="1e-24" step="1e-25" min="0" format="scientific">
+                        <small class="input-hint">Microscopic cross-section</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="enrichment">Enrichment (fraction):</label>
+                        <input type="number" id="enrichment" value="1.0" step="0.01" min="0" max="1">
+                        <small class="input-hint">Target enrichment fraction</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="sigmaBurn">Burn-Up Cross-Section (cm²):</label>
+                        <input type="number" id="sigmaBurn" value="1e-24" step="1e-25" min="0">
+                        <small class="input-hint">Cross-section for burn-up</small>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>Source Parameters</h3>
+                    <div class="input-row">
+                        <label for="sourceType">Source Type:</label>
+                        <select id="sourceType">
+                            <option value="neutron">Neutron Flux</option>
+                            <option value="beam">Charged Particle Beam</option>
+                        </select>
+                    </div>
+                    <div class="input-row" id="fluxRow">
+                        <label for="flux">Neutron Flux (cm⁻² s⁻¹):</label>
+                        <input type="number" id="flux" value="1e14" step="1e12" min="0">
+                        <small class="input-hint">Neutron flux</small>
+                    </div>
+                    <div class="input-row" id="beamRow" style="display:none;">
+                        <label for="beamCurrent">Beam Current (A):</label>
+                        <input type="number" id="beamCurrent" value="1e-6" step="1e-7" min="0">
+                        <small class="input-hint">Beam current</small>
+                    </div>
+                    <div class="input-row" id="beamRow2" style="display:none;">
+                        <label for="particleCharge">Particle Charge (e):</label>
+                        <input type="number" id="particleCharge" value="1" step="1" min="1">
+                        <small class="input-hint">Particle charge in elementary charge units</small>
+                    </div>
+                    <div class="input-row" id="beamRow3" style="display:none;">
+                        <label for="beamEnergy">Beam Energy (MeV):</label>
+                        <input type="number" id="beamEnergy" value="10" step="0.1" min="0">
+                        <small class="input-hint">Particle energy</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="dutyCycle">Duty Cycle (fraction):</label>
+                        <input type="number" id="dutyCycle" value="1.0" step="0.01" min="0" max="1">
+                        <small class="input-hint">Source duty cycle</small>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>Geometry Parameters</h3>
+                    <div class="input-row">
+                        <label for="targetRadius">Target Radius (cm):</label>
+                        <input type="number" id="targetRadius" value="1.0" step="0.1" min="0.1">
+                        <small class="input-hint">Target radius</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="targetThickness">Target Thickness (cm):</label>
+                        <input type="number" id="targetThickness" value="0.1" step="0.01" min="0.01">
+                        <small class="input-hint">Target thickness</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="sourceDistance">Source Distance (cm):</label>
+                        <input type="number" id="sourceDistance" value="10" step="1" min="1">
+                        <small class="input-hint">Distance from source to target</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="parentDensity">Parent Density (atoms/cm³):</label>
+                        <input type="number" id="parentDensity" value="5e22" step="1e21" min="0">
+                        <small class="input-hint">Parent atom number density</small>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>Engineering Parameters</h3>
+                    <div class="input-row">
+                        <label for="coolantFlow">Coolant Flow Rate (kg/s):</label>
+                        <input type="number" id="coolantFlow" value="0.1" step="0.01" min="0.001">
+                        <small class="input-hint">Mass flow rate</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="heatCapacity">Heat Capacity (J/(kg·K)):</label>
+                        <input type="number" id="heatCapacity" value="4184" step="100" min="100">
+                        <small class="input-hint">Specific heat capacity</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="deltaTMax">Max Temperature Rise (K):</label>
+                        <input type="number" id="deltaTMax" value="50" step="1" min="1">
+                        <small class="input-hint">Maximum allowed temperature rise</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="dpaLimit">DPA Limit:</label>
+                        <input type="number" id="dpaLimit" value="10" step="0.1" min="0.1">
+                        <small class="input-hint">Displacements per atom limit</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="dpaRate">DPA Rate (s⁻¹):</label>
+                        <input type="number" id="dpaRate" value="1e-8" step="1e-9" min="0">
+                        <small class="input-hint">DPA accumulation rate</small>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>Operations Parameters</h3>
+                    <div class="input-row">
+                        <label for="irradiationTime">Irradiation Time (days):</label>
+                        <input type="number" id="irradiationTime" value="7" step="0.1" min="0.001">
+                        <small class="input-hint">Irradiation duration</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="chemistryDelay">Chemistry Delay (hours):</label>
+                        <input type="number" id="chemistryDelay" value="24" step="1" min="0">
+                        <small class="input-hint">Processing delay</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="transportTime">Transport Time (hours):</label>
+                        <input type="number" id="transportTime" value="48" step="1" min="0">
+                        <small class="input-hint">Transport delay</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="chemistryLoss">Chemistry Loss Rate (s⁻¹):</label>
+                        <input type="number" id="chemistryLoss" value="1e-6" step="1e-7" min="0">
+                        <small class="input-hint">Chemistry decay constant</small>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>Decay Chain Parameters</h3>
+                    <div class="input-row">
+                        <label for="daughterHalfLife">Daughter Half-Life (days):</label>
+                        <input type="number" id="daughterHalfLife" value="0.5" step="0.1" min="0.001">
+                        <small class="input-hint">Daughter isotope half-life</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="branchingRatio">Branching Ratio:</label>
+                        <input type="number" id="branchingRatio" value="1.0" step="0.01" min="0" max="1">
+                        <small class="input-hint">Parent to daughter branching ratio</small>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>Uncertainty Parameters</h3>
+                    <div class="input-row">
+                        <label for="sigmaFlux">σ Flux (%):</label>
+                        <input type="number" id="sigmaFlux" value="5" step="0.1" min="0" max="100">
+                        <small class="input-hint">Flux uncertainty</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="sigmaSigma">σ Cross-Section (%):</label>
+                        <input type="number" id="sigmaSigma" value="3" step="0.1" min="0" max="100">
+                        <small class="input-hint">Cross-section uncertainty</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="sigmaGeom">σ Geometry (%):</label>
+                        <input type="number" id="sigmaGeom" value="2" step="0.1" min="0" max="100">
+                        <small class="input-hint">Geometric uncertainty</small>
+                    </div>
+                    <div class="input-row">
+                        <label for="sigmaChem">σ Chemistry (%):</label>
+                        <input type="number" id="sigmaChem" value="1" step="0.1" min="0" max="100">
+                        <small class="input-hint">Chemistry uncertainty</small>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. VISUALIZATION DASHBOARD -->
+            <section id="charts" class="charts-section">
+                <h2>Visualization Dashboard</h2>
+                <div class="chart-grid">
+                    <div class="chart-container">
+                        <div id="chartActivity" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="chartReactionRate" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="chartDecayChain" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="chartTemperature" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="chartDamage" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="chartWaterfall" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="chartTransport" class="chart"></div>
+                    </div>
+                    <div class="chart-container">
+                        <div id="chartUncertainty" class="chart"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. EXPLANATORY TEXT BLOCKS -->
+            <section id="explanations" class="explanations-section">
+                <h2>Model Description</h2>
+                <div class="explanation-block">
+                    <h3>Production Mechanism</h3>
+                    <p>The model calculates radioisotope production through neutron activation or charged-particle reactions. 
+                    The reaction rate depends on the target atom density, cross-section, particle flux or beam current, 
+                    and self-shielding effects. During irradiation, the produced isotope accumulates while simultaneously decaying.</p>
+                </div>
+                <div class="explanation-block">
+                    <h3>Decay Chains</h3>
+                    <p>Parent isotopes decay to daughter products following Bateman equations. The model accounts for 
+                    branching ratios and different decay constants. Daughter activity builds up during irradiation and 
+                    continues to evolve after end-of-bombardment (EOB).</p>
+                </div>
+                <div class="explanation-block">
+                    <h3>Engineering Constraints</h3>
+                    <p>Thermal limits constrain production through temperature rise calculations. Radiation damage 
+                    accumulates over time, potentially limiting target lifetime. Both effects are modeled as derating 
+                    factors that reduce effective production rates.</p>
+                </div>
+                <div class="explanation-block">
+                    <h3>Operational Delays</h3>
+                    <p>Post-irradiation processing and transport introduce delays that reduce delivered activity due 
+                    to radioactive decay. Chemistry losses during processing are modeled as exponential decay. 
+                    The waterfall chart shows activity loss at each stage.</p>
+                </div>
+                <div class="explanation-block">
+                    <h3>Uncertainty Propagation</h3>
+                    <p>Uncertainties in flux, cross-sections, geometry, and chemistry are propagated using root-sum-square 
+                    (RSS) methods. The uncertainty bands show ±1σ and ±2σ confidence intervals for delivered activity.</p>
+                </div>
+            </section>
+
+            <!-- 6. RESULTS -->
+            <section id="results" class="results-section">
+                <h2>Results Summary</h2>
+                <div id="resultsDisplay" class="results-display">
+                    <!-- Results will be displayed here -->
+                </div>
+            </section>
+        </main>
+
+        <!-- FOOTER WITH REPRODUCIBILITY NOTE -->
+        <footer>
+            <p><strong>Reproducibility:</strong> This model uses explicit physics formulas with documented units. 
+            All calculations are deterministic and traceable. Model version: 1.0.0 | 
+            Physics engine: Pure JavaScript | Visualization: Plotly.js 2.26.0</p>
+            <p>&copy; 2024 Generic Radioisotope Production Digital Twin</p>
+        </footer>
+    </div>
+
+    <!-- JavaScript files - Load order: model, charts, ui -->
+    <script src="js/model.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/ui.js"></script>
+</body>
+</html>
