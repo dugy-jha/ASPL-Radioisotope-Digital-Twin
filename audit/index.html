@@ -12,19 +12,6 @@
     <!-- MathJax -->
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-    
-    <!-- JavaScript files - Load order: atomicMasses, limitations, routes, isotopeRoutes, model, advancedPhysics, solverInterfaces, routeEvaluator, routeScoring, charts, ui -->
-    <script src="js/atomicMasses.js"></script>
-    <script src="js/limitations.js"></script>
-    <script src="js/routes.js"></script>
-    <script src="js/isotopeRoutes.js"></script>
-    <script src="js/model.js"></script>
-    <script src="js/advancedPhysics.js"></script>
-    <script src="js/solverInterfaces.js"></script>
-    <script src="js/routeEvaluator.js"></script>
-    <script src="js/routeScoring.js"></script>
-    <script src="js/charts.js"></script>
-    <script src="js/ui.js"></script>
     <script>
         window.MathJax = {
             tex: {
@@ -69,19 +56,6 @@
             <!-- 3. INPUT CONTROL PANEL -->
             <section id="controls" class="controls-section">
                 <h2>Input Parameters</h2>
-                
-                <div class="control-group">
-                    <h3>Application Context</h3>
-                    <div class="input-row">
-                        <label for="applicationContext">Application Context:</label>
-                        <select id="applicationContext">
-                            <option value="medical">Medical (viable ≥ 1 GBq)</option>
-                            <option value="industrial">Industrial (viable ≥ 0.1 GBq)</option>
-                            <option value="research">Research (viable ≥ 0.01 GBq)</option>
-                        </select>
-                        <small class="input-hint">Select application context to adjust activity viability thresholds for route evaluation</small>
-                    </div>
-                </div>
                 
                 <div class="validation-controls">
                     <h3>Test Cases</h3>
@@ -392,7 +366,6 @@
                 </div>
                 <div class="explanation-block">
                     <h3>Product Quality Alignment</h3>
-                    <p><strong>Acceptance Threshold Disclaimer:</strong> Acceptance thresholds are planning-level interpretations of guidance documents, not regulatory approval criteria. Threshold sources and justifications are documented in the evaluation system.</p>
                     <p>Acceptance criteria for radionuclidic purity and impurity fraction are aligned with AERB/RF-R/SC-1 
                     (Radioisotope Production Purity). The model enforces a minimum radionuclidic purity of 99.9% and maximum 
                     impurity fraction of 0.1%. These thresholds are implemented as hard acceptance criteria in the evaluation 
@@ -603,44 +576,28 @@
                     <!-- Results will be displayed here -->
                 </div>
             </section>
-
-            <!-- 12. MODEL SCOPE & LIMITATIONS -->
-            <section id="limitations" class="limitations-section">
-                <h2>Model Scope & Limitations (Explicit)</h2>
-                <p class="section-description">This section explicitly outlines the current scope and known limitations of the digital twin. These are important considerations for interpreting results and planning further development.</p>
-                <div id="limitationsList" class="limitations-list">
-                    <!-- Limitations will be populated by JavaScript -->
-                </div>
-                <div class="limitations-disclaimer">
-                    <p><strong>Note:</strong> This model is a planning-grade tool. It does not replace detailed engineering design, experimental validation, or regulatory licensing processes. Further refinements are continuously being developed.</p>
-                </div>
-                <div class="exclusions-section">
-                    <h3>Explicitly NOT Implemented (v2.0.0)</h3>
-                    <p class="section-description">The following capabilities are explicitly excluded from this digital twin:</p>
-                    <ul class="exclusions-list">
-                        <li><strong>CFD Solvers:</strong> Computational Fluid Dynamics solvers are not implemented. Thermal boundary conditions can be exported for external CFD solvers via the export interface.</li>
-                        <li><strong>Neutron Transport Solvers:</strong> Neutron transport solvers (e.g., MCNP, OpenMC) are not implemented. Geometry and source definitions can be exported for external transport solvers via the export interface.</li>
-                        <li><strong>Licensing Approval:</strong> This digital twin does not provide regulatory licensing approval. It is a planning tool only. Users must obtain appropriate regulatory approvals independently.</li>
-                        <li><strong>Production Guarantees:</strong> This digital twin does not guarantee production yields or facility performance. Results are planning estimates only. Users must validate production yields through experimental measurements.</li>
-                        <li><strong>Economic Optimization:</strong> Economic optimization, cost modeling, and business case analysis are not implemented. Economic analysis requires external tools or manual calculations.</li>
-                    </ul>
-                    <p class="section-description"><strong>Scope Boundary:</strong> This digital twin focuses on physics-based calculations for radioisotope production planning. It provides export interfaces for external validated solvers but does not implement the solvers themselves.</p>
-                </div>
-            </section>
         </main>
 
         <!-- FOOTER WITH REPRODUCIBILITY NOTE -->
         <footer>
             <p><strong>Calculation Method:</strong> All formulas are explicit with documented units. Calculations are deterministic. 
-            Model version: 2.0.0 | Implementation: JavaScript (ECMAScript 2020) | Visualization: Plotly.js 2.26.0 | 
+            Model version: 1.1.0 | Implementation: JavaScript (ECMAScript 2020) | Visualization: Plotly.js 2.26.0 | 
             Equation rendering: MathJax 3.0</p>
-            <p><strong>Advanced Features (v2.0.0):</strong> Multi-step decay chains, product burn-up, time-dependent flux, 
-            spatial flux distribution, epithermal resonance integrals, chemistry yield model, Monte Carlo uncertainty (parametric only).</p>
-            <p><strong>Explicitly NOT Implemented:</strong> CFD solvers, neutron transport solvers, licensing approval, 
-            production guarantees, economic optimization. See Model Scope & Limitations section for details.</p>
+            <p><strong>Limitations:</strong> Point source geometry assumed. Uniform target density assumed. Constant flux/beam current assumed. 
+            Single-step decay chains only. Uncorrelated uncertainties assumed. No spatial flux gradients. No annealing effects.</p>
             <p>&copy; 2024 Generic Radioisotope Production Digital Twin</p>
         </footer>
     </div>
 
+    <!-- JavaScript files - Load order: atomicMasses, limitations, routes, isotopeRoutes, model, routeEvaluator, routeScoring, charts, ui -->
+    <script src="js/atomicMasses.js"></script>
+    <script src="js/limitations.js"></script>
+    <script src="js/routes.js"></script>
+    <script src="js/isotopeRoutes.js"></script>
+    <script src="js/model.js"></script>
+    <script src="js/routeEvaluator.js"></script>
+    <script src="js/routeScoring.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/ui.js"></script>
 </body>
 </html>

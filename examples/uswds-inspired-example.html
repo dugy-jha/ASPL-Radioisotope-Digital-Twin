@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USWDS-Inspired Design Example</title>
+    
+    <!-- Use the USWDS-inspired CSS -->
+    <link rel="stylesheet" href="../css/uswds-inspired.css">
+    
+    <style>
+        /* Additional example-specific styles */
+        .example-section {
+            margin-bottom: var(--spacing-8);
+            padding: var(--spacing-6);
+            background-color: var(--color-background-alt);
+            border-radius: var(--radius-md);
+        }
+        
+        .example-section h2 {
+            margin-top: 0;
+        }
+        
+        .color-swatch {
+            display: inline-block;
+            width: 100px;
+            height: 100px;
+            border-radius: var(--radius-md);
+            margin-right: var(--spacing-4);
+            margin-bottom: var(--spacing-4);
+            border: 1px solid var(--color-border);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="header-title">USWDS-Inspired Design System</h1>
+            <p class="header-subtitle">Based on Federal Government Design Standards</p>
+        </header>
+
+        <main style="margin-top: var(--spacing-8);">
+            <!-- Typography Section -->
+            <section class="example-section">
+                <h2>Typography</h2>
+                <h1>Heading 1 - Main Title</h1>
+                <h2>Heading 2 - Section Title</h2>
+                <h3>Heading 3 - Subsection</h3>
+                <h4>Heading 4 - Minor Heading</h4>
+                <p>This is a paragraph with normal text. It demonstrates the base font size and line height for readable content.</p>
+                <p><small>This is small text, typically used for hints or secondary information.</small></p>
+            </section>
+
+            <!-- Buttons Section -->
+            <section class="example-section">
+                <h2>Buttons</h2>
+                <div style="display: flex; gap: var(--spacing-3); flex-wrap: wrap;">
+                    <button class="btn btn-primary">Primary Button</button>
+                    <button class="btn btn-secondary">Secondary Button</button>
+                    <button class="btn btn-success">Success Button</button>
+                    <button class="btn btn-warning">Warning Button</button>
+                    <button class="btn btn-error">Error Button</button>
+                </div>
+            </section>
+
+            <!-- Forms Section -->
+            <section class="example-section">
+                <h2>Forms</h2>
+                <form>
+                    <div class="form-group">
+                        <label for="example-input" class="form-label">Example Input</label>
+                        <input type="text" id="example-input" class="form-input" placeholder="Enter text here">
+                        <small class="form-hint">This is a hint text to help users understand the input.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="example-select" class="form-label">Select Dropdown</label>
+                        <select id="example-select" class="form-select">
+                            <option value="">Choose an option</option>
+                            <option value="1">Option 1</option>
+                            <option value="2">Option 2</option>
+                            <option value="3">Option 3</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="example-textarea" class="form-label">Textarea</label>
+                        <textarea id="example-textarea" class="form-textarea" rows="4" placeholder="Enter multiple lines of text"></textarea>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary">Submit Form</button>
+                </form>
+            </section>
+
+            <!-- Cards Section -->
+            <section class="example-section">
+                <h2>Cards</h2>
+                <div class="grid grid-3">
+                    <div class="card">
+                        <div class="card-header">Card Title</div>
+                        <div class="card-body">
+                            This is a card component with header, body, and optional footer sections.
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">Another Card</div>
+                        <div class="card-body">
+                            Cards are great for displaying related content in a structured format.
+                        </div>
+                        <div class="card-footer">
+                            <button class="btn btn-secondary">Learn More</button>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">Third Card</div>
+                        <div class="card-body">
+                            Cards can contain any content including forms, images, or text.
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alerts Section -->
+            <section class="example-section">
+                <h2>Alerts & Notifications</h2>
+                <div class="alert alert-success">
+                    <strong>Success!</strong> This is a success message indicating a positive outcome.
+                </div>
+                <div class="alert alert-info">
+                    <strong>Info:</strong> This is an informational message providing helpful context.
+                </div>
+                <div class="alert alert-warning">
+                    <strong>Warning:</strong> This is a warning message indicating potential issues.
+                </div>
+                <div class="alert alert-error">
+                    <strong>Error:</strong> This is an error message indicating something went wrong.
+                </div>
+            </section>
+
+            <!-- Color Palette Section -->
+            <section class="example-section">
+                <h2>Color Palette</h2>
+                <h3>Primary Colors</h3>
+                <div>
+                    <div class="color-swatch" style="background-color: var(--color-primary);"></div>
+                    <div class="color-swatch" style="background-color: var(--color-primary-dark);"></div>
+                    <div class="color-swatch" style="background-color: var(--color-primary-darkest);"></div>
+                    <div class="color-swatch" style="background-color: var(--color-primary-light);"></div>
+                    <div class="color-swatch" style="background-color: var(--color-primary-lighter);"></div>
+                </div>
+                
+                <h3>Status Colors</h3>
+                <div>
+                    <div class="color-swatch" style="background-color: var(--color-success);"></div>
+                    <div class="color-swatch" style="background-color: var(--color-warning);"></div>
+                    <div class="color-swatch" style="background-color: var(--color-error);"></div>
+                    <div class="color-swatch" style="background-color: var(--color-info);"></div>
+                </div>
+            </section>
+
+            <!-- Grid System Section -->
+            <section class="example-section">
+                <h2>Grid System</h2>
+                <div class="grid grid-2">
+                    <div class="card">
+                        <div class="card-body">Grid Item 1</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">Grid Item 2</div>
+                    </div>
+                </div>
+                <div class="grid grid-3" style="margin-top: var(--spacing-4);">
+                    <div class="card">
+                        <div class="card-body">Grid Item 1</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">Grid Item 2</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">Grid Item 3</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Utility Classes Section -->
+            <section class="example-section">
+                <h2>Utility Classes</h2>
+                <p class="text-primary">This text uses the primary color utility class.</p>
+                <p class="text-success">This text uses the success color utility class.</p>
+                <p class="text-warning">This text uses the warning color utility class.</p>
+                <p class="text-error">This text uses the error color utility class.</p>
+                <p class="text-center">This text is centered using the utility class.</p>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer style="margin-top: var(--spacing-8); padding: var(--spacing-6); border-top: 2px solid var(--color-border); text-align: center; color: var(--color-base-light);">
+            <p>&copy; 2024 Example Site | Based on USWDS Design System</p>
+        </footer>
+    </div>
+</body>
+</html>
+
