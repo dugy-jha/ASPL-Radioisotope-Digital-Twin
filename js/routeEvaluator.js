@@ -17,6 +17,70 @@
 // Default chemistry separation yield (conservative estimate)
 const DEFAULT_CHEMISTRY_YIELD = 0.85;
 
+// ============================================================================
+// ISOTOPE PATHWAYS LOOKUP
+// ============================================================================
+
+/**
+ * Lookup isotope pathway from ISOTOPE_PATHWAYS registry
+ * 
+ * @param {Object} route - Route object from ISOTOPE_ROUTES
+ * @returns {Object|null} Pathway object from ISOTOPE_PATHWAYS, or null if not found
+ */
+function lookupPathway(route) {
+    if (!route || !route.product_isotope) {
+        return null;
+    }
+    
+    // Try to access ISOTOPE_PATHWAYS (may be in different module or loaded globally)
+    let pathways = null;
+    
+    // Try global variable (if loaded via script tag)
+    if (typeof ISOTOPE_PATHWAYS !== 'undefined' && Array.isArray(ISOTOPE_PATHWAYS)) {
+        pathways = ISOTOPE_PATHWAYS;
+    }
+    // Try window.ISOTOPE_PATHWAYS (browser global)
+    else if (typeof window !== 'undefined' && window.ISOTOPE_PATHWAYS && Array.isArray(window.ISOTOPE_PATHWAYS)) {
+        pathways = window.ISOTOPE_PATHWAYS;
+    }
+    
+    if (!pathways || !Array.isArray(pathways)) {
+        return null;
+    }
+    
+    // Lookup by product isotope (primary match)
+    const productMatch = pathways.find(p => 
+        p.primary_product === route.product_isotope
+    );
+    
+    if (productMatch) {
+        return productMatch;
+    }
+    
+    // Lookup by route ID (secondary match) - normalize route ID format
+    const routeIdNormalized = route.id ? route.id.toUpperCase().replace(/-/g, '_') : null;
+    if (routeIdNormalized) {
+        const idMatch = pathways.find(p => p.id === routeIdNormalized);
+        if (idMatch) {
+            return idMatch;
+        }
+    }
+    
+    // Lookup by target and product combination (tertiary match)
+    if (route.target_isotope && route.product_isotope) {
+        const targetProductMatch = pathways.find(p => 
+            p.production && 
+            p.production.target === route.target_isotope &&
+            p.primary_product === route.product_isotope
+        );
+        if (targetProductMatch) {
+            return targetProductMatch;
+        }
+    }
+    
+    return null;
+}
+
 const RouteEvaluator = {
     /**
      * Extract element symbol from isotope string
@@ -167,18 +231,50 @@ const RouteEvaluator = {
         let impurityRiskLevel = 'Low'; // Default, will be updated by impurity trap assessment
 
         // ============================================================================
+        // LOOKUP ISOTOPE PATHWAY
+        // ============================================================================
+        
+        const pathway = lookupPathway(route);
+        let pathwayDataAvailable = false;
+        
+        if (pathway) {
+            pathwayDataAvailable = true;
+            
+            // Emit pathway warnings
+            if (pathway.warnings && Array.isArray(pathway.warnings)) {
+                pathway.warnings.forEach(warningCode => {
+                    if (typeof console !== 'undefined' && console.warn) {
+                        console.warn(`Pathway warning [${warningCode}] for route ${route.id}`);
+                    }
+                });
+            }
+        } else {
+            // Pathway not found - warn and proceed conservatively
+            if (typeof console !== 'undefined' && console.warn) {
+                console.warn(`Isotope pathway not found for route ${route.id} (product: ${route.product_isotope}). ` +
+                           `Proceeding conservatively with route metadata only.`);
+            }
+            warnings.push('Isotope pathway not found in canonical registry - using route metadata only');
+        }
+
+        // ============================================================================
         // THRESHOLD CHECK
         // ============================================================================
         
-        if (route.threshold_MeV !== null && route.threshold_MeV > 0) {
+        // Use pathway threshold if available, otherwise route threshold
+        const threshold_MeV = pathway && pathway.production && pathway.production.threshold_MeV !== undefined
+            ? pathway.production.threshold_MeV
+            : (route.threshold_MeV !== null ? route.threshold_MeV : null);
+        
+        if (threshold_MeV !== null && threshold_MeV > 0) {
             const neutronEnergy = modelState.neutronEnergy || 14.1; // Default to 14.1 MeV for fast neutrons
-            if (neutronEnergy < route.threshold_MeV) {
+            if (neutronEnergy < threshold_MeV) {
                 return {
                     route_id: route.id,
                     feasible: false,
                     classification: 'Not recommended',
-                    reasons: [`Neutron energy (${neutronEnergy.toFixed(2)} MeV) below reaction threshold (${route.threshold_MeV} MeV)`],
-                    warnings: []
+                    reasons: [`Neutron energy (${neutronEnergy.toFixed(2)} MeV) below reaction threshold (${threshold_MeV} MeV)`],
+                    warnings: warnings
                 };
             }
         }
@@ -187,13 +283,21 @@ const RouteEvaluator = {
         // CHEMICAL SEPARABILITY CHECK
         // ============================================================================
         
-        if (!route.chemical_separable && !route.carrier_added_acceptable) {
+        // Use pathway chemistry mode if available, otherwise route flags
+        const chemical_separable = pathway && pathway.chemistry
+            ? (pathway.chemistry.mode !== undefined && pathway.chemistry.mode !== 'generator') // Generator mode implies separable
+            : route.chemical_separable;
+        const carrier_added_acceptable = pathway && pathway.chemistry && pathway.chemistry.carrier_added_ok !== undefined
+            ? pathway.chemistry.carrier_added_ok
+            : route.carrier_added_acceptable;
+        
+        if (!chemical_separable && !carrier_added_acceptable) {
             return {
                 route_id: route.id,
                 feasible: false,
                 classification: 'Not recommended',
                 reasons: ['Product is chemically inseparable and carrier-added production is not acceptable'],
-                warnings: []
+                warnings: warnings
             };
         }
 
@@ -203,38 +307,49 @@ const RouteEvaluator = {
         
         let sigma_cm2 = 0;
         let effectiveFlux = 0;
+        
+        // Get reaction type from pathway if available, otherwise route
+        let reactionType = null;
+        if (pathway && pathway.production && pathway.production.reaction) {
+            // Normalize pathway reaction format "(n,γ)" to route format "n,γ"
+            reactionType = pathway.production.reaction.replace(/[()]/g, '').replace('gamma', 'γ');
+        } else {
+            reactionType = route.reaction || 'n,γ';
+        }
 
         // Determine cross-section based on reaction type
-        if (route.reaction === 'n,γ' || route.reaction === 'n,gamma') {
+        if (reactionType === 'n,γ' || reactionType === 'n,gamma') {
             // Thermal/epithermal neutron reaction
-            if (route.nominal_sigma_barns === null) {
-                warnings.push('Cross-section not specified - using conservative placeholder');
-                // Use conservative placeholder: assume 1 barn thermal
-                sigma_cm2 = 1e-24; // 1 barn = 1e-24 cm²
-            } else {
+            // Use pathway cross-section if available, otherwise route
+            if (pathway && pathway.production && pathway.production.sigma_cm2 !== undefined) {
+                sigma_cm2 = pathway.production.sigma_cm2; // Already in cm²
+            } else if (route.nominal_sigma_barns !== null) {
                 sigma_cm2 = route.nominal_sigma_barns * 1e-24; // Convert barns to cm²
+            } else {
+                warnings.push('Cross-section not specified - using conservative placeholder');
+                sigma_cm2 = 1e-24; // 1 barn = 1e-24 cm² (conservative placeholder)
             }
             // Use thermal flux
             effectiveFlux = modelState.neutronFlux || 1e14; // cm^-2 s^-1
         } else {
             // Fast neutron reaction (n,p, n,2n, n,d)
-            if (route.nominal_sigma_barns === null) {
-                warnings.push('Cross-section not specified - using conservative placeholder');
-                // Use conservative placeholder: assume 10 mb at 14.1 MeV
-                sigma_cm2 = 10e-27; // 10 mb = 10e-27 cm²
+            // Use pathway cross-section if available, otherwise route
+            if (pathway && pathway.production && pathway.production.sigma_cm2_14MeV !== undefined) {
+                sigma_cm2 = pathway.production.sigma_cm2_14MeV; // Already in cm²
+            } else if (route.nominal_sigma_barns !== null) {
+                sigma_cm2 = route.nominal_sigma_barns * 1e-24; // Convert barns to cm²
             } else {
-                // Convert barns to cm² (1 barn = 1e-24 cm²)
-                // Note: nominal_sigma_barns is always in barns (field name convention)
-                sigma_cm2 = route.nominal_sigma_barns * 1e-24;
+                warnings.push('Cross-section not specified - using conservative placeholder');
+                sigma_cm2 = 10e-27; // 10 mb = 10e-27 cm² (conservative placeholder)
             }
             
             // Apply threshold activation if threshold exists
             const neutronEnergy = modelState.neutronEnergy || 14.1; // MeV
-            if (route.threshold_MeV !== null && route.threshold_MeV > 0) {
+            if (threshold_MeV !== null && threshold_MeV > 0) {
                 // thresholdActivation expects cross-section in mb
                 // Convert cm² to mb: 1 mb = 1e-27 cm², so mb = cm² / 1e-27
                 const sigma_mb = sigma_cm2 / 1e-27;
-                const effectiveSigma_mb = Model.thresholdActivation(neutronEnergy, route.threshold_MeV, sigma_mb);
+                const effectiveSigma_mb = Model.thresholdActivation(neutronEnergy, threshold_MeV, sigma_mb);
                 sigma_cm2 = effectiveSigma_mb * 1e-27; // Convert back to cm²
                 
                 if (sigma_cm2 === 0) {
@@ -256,8 +371,13 @@ const RouteEvaluator = {
         // RESONANCE-DOMINATED ISOTOPE WARNING
         // ============================================================================
         
+        // Use pathway resonance_dominated flag if available, otherwise route
+        const resonance_dominated = pathway && pathway.production && pathway.production.resonance_dominated !== undefined
+            ? pathway.production.resonance_dominated
+            : (route.resonance_dominated === true);
+        
         // Warn if resonance-dominated isotope is used with non-thermal spectrum
-        if (route.resonance_dominated === true) {
+        if (resonance_dominated === true) {
             const fluxProfileType = modelState.fluxProfileType || 'constant'; // Default to constant if not specified
             if (fluxProfileType !== 'pure_thermal') {
                 if (typeof console !== 'undefined' && console.warn) {
@@ -272,7 +392,16 @@ const RouteEvaluator = {
         // REACTION RATE CALCULATION
         // ============================================================================
         
-        const f_shield = modelState.selfShieldingFactor || 1.0;
+        // Use pathway self_shielding flag if available, otherwise modelState
+        // If pathway specifies self_shielding: true, use calculated value; if false or undefined, use modelState
+        let f_shield = modelState.selfShieldingFactor || 1.0;
+        if (pathway && pathway.production && pathway.production.self_shielding === false) {
+            // Pathway explicitly disables self-shielding
+            f_shield = 1.0;
+        } else if (pathway && pathway.production && pathway.production.self_shielding === true && f_shield === 1.0) {
+            // Pathway requires self-shielding but modelState doesn't provide it
+            // Will be calculated later if needed (conservative: use 1.0 for now)
+        }
         const enrichment = modelState.enrichment || 1.0;
         const targetMass = modelState.targetMass || 1.0; // g
         
@@ -298,12 +427,22 @@ const RouteEvaluator = {
         // reducing the effective yield. This is significant for high-flux, long-irradiation cases.
         // 
         // Conditional logic: Only apply product burn-up if cross-section data is available.
-        // If route.sigma_product_burn_cm2 is null or undefined, use standard decay-only physics.
+        // Use pathway data if available, otherwise route data.
         // This preserves backward compatibility and allows routes without burn-up data to work normally.
         let N_EOB;
         let k_burn_product = 0;
         
-        if (route.sigma_product_burn_cm2 !== null && route.sigma_product_burn_cm2 !== undefined && route.sigma_product_burn_cm2 > 0) {
+        // Get product burn-up cross-section from pathway if available, otherwise route
+        const sigma_product_burn_cm2 = pathway && pathway.production && pathway.production.sigma_product_burn_cm2 !== undefined
+            ? pathway.production.sigma_product_burn_cm2
+            : (route.sigma_product_burn_cm2 !== null && route.sigma_product_burn_cm2 !== undefined ? route.sigma_product_burn_cm2 : null);
+        
+        // Check if product burn-up should be applied
+        const apply_product_burnup = pathway && pathway.production && pathway.production.burnup_product !== undefined
+            ? pathway.production.burnup_product
+            : (sigma_product_burn_cm2 !== null && sigma_product_burn_cm2 !== undefined && sigma_product_burn_cm2 > 0);
+        
+        if (apply_product_burnup && sigma_product_burn_cm2 !== null && sigma_product_burn_cm2 !== undefined && sigma_product_burn_cm2 > 0) {
             // Product burn-up data available: compute burn-up rate constant with self-shielding
             // v2.2.1: Now includes self-shielding for symmetric treatment with production reaction
             
@@ -338,7 +477,7 @@ const RouteEvaluator = {
             // Calculate product burn-up rate constant with self-shielding
             k_burn_product = Model.productBurnUpRate(
                 effectiveFlux,
-                route.sigma_product_burn_cm2,
+                sigma_product_burn_cm2,
                 productAtomDensity_cm3_clamped,
                 targetThickness_cm
             );
@@ -375,7 +514,7 @@ const RouteEvaluator = {
         // For carrier-added routes, include carrier mass in specific activity calculation
         // Carrier-added specific activity includes stable carrier mass
         let totalMass = productMass;
-        if (route.carrier_added_acceptable) {
+        if (carrier_added_acceptable) {
             // For carrier-added production, add stable carrier mass
             // Default: assume carrier mass equals target mass (conservative)
             // This can be overridden by route-specific carrierMass metadata
@@ -411,7 +550,7 @@ const RouteEvaluator = {
             classification = 'Feasible with constraints';
         }
 
-        if (hasChemicalInseparability && !route.carrier_added_acceptable) {
+        if (hasChemicalInseparability && !carrier_added_acceptable) {
             feasible = false;
             classification = 'Not recommended';
             reasons.push('Chemically inseparable impurity and carrier-added production not acceptable');
@@ -505,7 +644,7 @@ const RouteEvaluator = {
         // SPECIFIC ACTIVITY CHECKS (for n.c.a. routes)
         // ============================================================================
         
-        if (!route.carrier_added_acceptable) {
+        if (!carrier_added_acceptable) {
             // n.c.a. routes require high specific activity
             if (specificActivity < 1e12) { // Bq/g
                 reasons.push(`Specific activity may be insufficient for n.c.a. requirements (${(specificActivity / 1e12).toFixed(2)} TBq/g)`);
@@ -542,22 +681,50 @@ const RouteEvaluator = {
             activity_after_decay_transport = activity_after_decay_transport * Math.exp(-lambda * t_transport);
         }
         
-        // Apply chemistry yield if route is chemically separable
+        // Apply chemistry yield
+        // Chemistry yield enforced to prevent optimistic bias.
+        // If pathway.chemistry.default_yield exists, always apply it.
+        // Never allow chemistry yield = 1.0 unless explicitly stated.
         let activity_delivered = activity_after_decay_transport;
-        if (route.chemical_separable === true) {
-            // Use route-specific chemistry yield if provided, otherwise use default
-            const chemistry_yield = route.chemistry_yield !== undefined && route.chemistry_yield !== null
-                ? route.chemistry_yield
-                : DEFAULT_CHEMISTRY_YIELD;
-            
-            // Warn if default yield is applied
-            if (route.chemistry_yield === undefined || route.chemistry_yield === null) {
-                if (typeof console !== 'undefined' && console.warn) {
-                    console.warn(`No chemistry yield specified for route ${route.id}. Applying conservative default of 85%.`);
+        let chemistry_yield = null;
+        let yield_source = null; // Track source for 1.0 validation
+        
+        // Priority 1: Pathway chemistry yield (always apply if exists, regardless of chemical_separable flag)
+        if (pathway && pathway.chemistry && pathway.chemistry.default_yield !== undefined) {
+            chemistry_yield = pathway.chemistry.default_yield;
+            yield_source = 'pathway';
+        }
+        // Priority 2: Route chemistry yield (if explicitly provided)
+        else if (route.chemistry_yield !== undefined && route.chemistry_yield !== null) {
+            chemistry_yield = route.chemistry_yield;
+            yield_source = 'route';
+        }
+        // Priority 3: Apply default only if chemically separable
+        else if (chemical_separable === true) {
+            chemistry_yield = DEFAULT_CHEMISTRY_YIELD; // Conservative default (0.85)
+            yield_source = 'default';
+            if (typeof console !== 'undefined' && console.warn) {
+                console.warn(`No chemistry yield specified for route ${route.id}. Applying conservative default of 85%.`);
+            }
+        }
+        
+        // Apply chemistry yield if determined (never allow implicit 1.0)
+        if (chemistry_yield !== null && chemistry_yield !== undefined) {
+            // Enforce: Never allow 1.0 unless explicitly stated in pathway or route
+            if (chemistry_yield >= 1.0) {
+                const is_explicitly_stated = (yield_source === 'pathway' && pathway.chemistry.default_yield === 1.0) ||
+                                            (yield_source === 'route' && route.chemistry_yield === 1.0);
+                
+                if (!is_explicitly_stated) {
+                    // Clamp to conservative maximum (0.99) to prevent optimistic bias
+                    chemistry_yield = 0.99;
+                    if (typeof console !== 'undefined' && console.warn) {
+                        console.warn(`Chemistry yield clamped to 0.99 (was >= 1.0) to prevent optimistic bias. Route: ${route.id}`);
+                    }
                 }
             }
             
-            // Apply chemistry yield using existing Model function
+            // Always apply chemistry yield using existing Model function
             activity_delivered = Model.deliveredActivityWithChemistryYield(activity_after_decay_transport, chemistry_yield);
         }
 

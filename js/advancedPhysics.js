@@ -1,7 +1,7 @@
 /**
  * advancedPhysics.js
  * 
- * Advanced Physics Features Module (v2.1.1)
+ * Advanced Physics Features Module (v2.2.1)
  * 
  * This module implements advanced physics features while maintaining:
  * - Deterministic behavior

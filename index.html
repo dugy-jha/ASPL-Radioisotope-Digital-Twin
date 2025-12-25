@@ -13,11 +13,12 @@
     <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     
-    <!-- JavaScript files - Load order: atomicMasses, limitations, routes, isotopeRoutes, model, advancedPhysics, solverInterfaces, routeEvaluator, routeScoring, charts, ui, itAssetDB, csvImporter, itAssetUI -->
+    <!-- JavaScript files - Load order: atomicMasses, limitations, routes, isotopeRoutes, isotopePathways, model, advancedPhysics, solverInterfaces, routeEvaluator, routeScoring, charts, ui, itAssetDB, csvImporter, itAssetUI -->
     <script src="js/atomicMasses.js"></script>
     <script src="js/limitations.js"></script>
     <script src="js/routes.js"></script>
     <script src="js/isotopeRoutes.js"></script>
+    <script src="routing/isotopePathways.js"></script>
     <script src="js/model.js"></script>
     <script src="js/advancedPhysics.js"></script>
     <script src="js/solverInterfaces.js"></script>
@@ -1034,8 +1035,9 @@
         <!-- FOOTER WITH REPRODUCIBILITY NOTE -->
         <footer>
             <p><strong>Calculation Method:</strong> All formulas are explicit with documented units. Calculations are deterministic. 
-                    Model version: 2.1.1 | Implementation: JavaScript (ECMAScript 2020) | Visualization: Plotly.js 2.26.0 |
+                    Model version: 2.2.1 | Implementation: JavaScript (ECMAScript 2020) | Visualization: Plotly.js 2.26.0 |
             Equation rendering: MathJax 3.0</p>
+            <p><strong>Release Notes (v2.2.1):</strong> Canonical isotope pathways introduced. Physics locked. Comparative-only analysis supported.</p>
             <p><strong>Advanced Features (v2.0.0):</strong> Multi-step decay chains, product burn-up, time-dependent flux, 
             spatial flux distribution, epithermal resonance integrals, chemistry yield model, Monte Carlo uncertainty (parametric only).</p>
             <p><strong>Explicitly NOT Implemented:</strong> CFD solvers, neutron transport solvers, licensing approval, 

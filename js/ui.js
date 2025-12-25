@@ -14,6 +14,8 @@ const UI = {
      * Initialize UI components and event listeners
      */
     init: function() {
+        this.addPhysicsLockBanner();
+        this.disablePhysicsInputs();
         this.setupEventListeners();
         this.initializeCharts();
         this.updateEquations();
@@ -28,6 +30,106 @@ const UI = {
      */
     initializeCharts: function() {
         Charts.init();
+    },
+
+    /**
+     * Add physics lock banner to UI
+     */
+    addPhysicsLockBanner: function() {
+        const container = document.querySelector('.container');
+        if (!container) return;
+        
+        // Check if banner already exists
+        if (document.getElementById('physicsLockBanner')) return;
+        
+        const banner = document.createElement('div');
+        banner.id = 'physicsLockBanner';
+        banner.style.cssText = 'background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 4px; padding: 12px 16px; margin: 16px 0; color: #856404; font-weight: 500;';
+        banner.innerHTML = '<strong>⚠️ Physics Lock:</strong> Physics pathways are locked. Only source, moderator, and target geometry may be changed.';
+        
+        // Insert after header or at top of container
+        const header = document.querySelector('header');
+        if (header && header.nextSibling) {
+            container.insertBefore(banner, header.nextSibling);
+        } else {
+            container.insertBefore(banner, container.firstChild);
+        }
+    },
+
+    /**
+     * Disable physics-related UI inputs and add warning handlers
+     */
+    disablePhysicsInputs: function() {
+        // List of physics-locked input IDs
+        const physicsLockedInputs = [
+            'crossSection',      // Cross-section
+            'sigmaBurn',         // Burn-up cross-section
+            'daughterHalfLife',  // Decay chain parameter
+            'branchingRatio',    // Decay chain parameter
+            'chemistryLoss'      // Chemistry yield parameter
+        ];
+        
+        physicsLockedInputs.forEach(inputId => {
+            const input = document.getElementById(inputId);
+            if (input) {
+                // Disable the input
+                input.disabled = true;
+                input.style.backgroundColor = '#f5f5f5';
+                input.style.cursor = 'not-allowed';
+                input.title = 'Physics is frozen for comparative analysis.';
+                
+                // Add event handlers to show warning on interaction attempts
+                input.addEventListener('focus', (e) => {
+                    e.preventDefault();
+                    e.target.blur();
+                    this.showPhysicsLockWarning();
+                });
+                
+                input.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    this.showPhysicsLockWarning();
+                });
+                
+                input.addEventListener('keydown', (e) => {
+                    if (e.key !== 'Tab' && e.key !== 'Escape') {
+                        e.preventDefault();
+                        this.showPhysicsLockWarning();
+                    }
+                });
+            }
+        });
+    },
+
+    /**
+     * Show warning when physics modification is attempted
+     */
+    showPhysicsLockWarning: function() {
+        const warningText = 'Physics is frozen for comparative analysis.';
+        
+        // Show console warning
+        if (typeof console !== 'undefined' && console.warn) {
+            console.warn(warningText);
+        }
+        
+        // Show user-visible alert (non-blocking)
+        const existingAlert = document.getElementById('physicsLockAlert');
+        if (existingAlert) {
+            existingAlert.remove();
+        }
+        
+        const alert = document.createElement('div');
+        alert.id = 'physicsLockAlert';
+        alert.style.cssText = 'position: fixed; top: 20px; right: 20px; background-color: #f8d7da; border: 2px solid #dc3545; border-radius: 4px; padding: 12px 16px; color: #721c24; font-weight: 500; z-index: 10000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px;';
+        alert.innerHTML = `<strong>⚠️ Physics Lock:</strong> ${warningText}`;
+        
+        document.body.appendChild(alert);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (alert.parentNode) {
+                alert.parentNode.removeChild(alert);
+            }
+        }, 3000);
     },
 
     /**

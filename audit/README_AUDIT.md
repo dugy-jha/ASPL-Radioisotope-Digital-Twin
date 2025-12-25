@@ -1,5 +1,5 @@
 # Generic Radioisotope Production Digital Twin
-## Frozen Audit Snapshot (v2.2.0)
+## Frozen Audit Snapshot (v2.2.1)
 
 ---
 
@@ -190,7 +190,9 @@ These components implement standard physics equations with verified dimensional 
 
 ## 7. Version & Provenance
 
-**Version:** 2.2.0
+**Version:** 2.2.1
+
+**Release Notes:** Canonical isotope pathways introduced. Physics locked. Comparative-only analysis supported.
 
 **Git Commit Hash:** 4799f41d1a8ff63255266cd85717a4857273ef67
 
@@ -198,13 +200,15 @@ These components implement standard physics equations with verified dimensional 
 
 **Snapshot Date:** 2024-12-24
 
-**Statement:** This snapshot reflects v2.2.0 exactly, including:
+**Statement:** This snapshot reflects v2.2.1 exactly, including:
+- Canonical isotope pathways registry (frozen, audit-locked)
+- Physics lock enforcement (UI and data protection)
 - Multi-step Bateman decay chain fixes (branching support)
-- Product burn-up integration (data-dependent)
+- Product burn-up integration (data-dependent, self-shielded)
 - Numerical hygiene patches (v2.1.1)
 - All physics and numerical improvements
 
-**Note:** The git commit shown is from v2.1.1. The v2.2.0 changes (Bateman branching fix, product burn-up integration) are included in this snapshot but may not yet be committed.
+**Note:** The git commit shown is from v2.1.1. The v2.2.0 and v2.2.1 changes (Bateman branching fix, product burn-up integration, canonical pathways, physics lock) are included in this snapshot but may not yet be committed.
 
 ---
 
@@ -256,7 +260,8 @@ These components implement standard physics equations with verified dimensional 
 ## 10. Contact and Attribution
 
 **Model Name:** Generic Radioisotope Production Digital Twin  
-**Version:** 2.2.0  
+**Version:** 2.2.1  
+**Release Notes:** Canonical isotope pathways introduced. Physics locked. Comparative-only analysis supported.  
 **Purpose:** Planning-grade radioisotope production modeling for D–T neutron generator concepts  
 **License:** See main repository LICENSE file  
 **Disclaimer:** This is a planning tool only. No regulatory approval, licensing, or production guarantees are provided.
