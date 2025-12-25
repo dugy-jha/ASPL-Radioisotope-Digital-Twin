@@ -75,6 +75,14 @@ The application is designed to work with GitHub Pages. Simply push to the reposi
   - Spatial flux distribution (circular targets, solid-angle geometry)
   - Epithermal resonance integrals
 
+- **Neutron Source Models**
+  - D-T fusion neutron generator (existing)
+  - GDT (Gas Dynamic Trap) neutron source module (planning-grade)
+    - Fusion power → neutron yield conversion
+    - Time-averaged yield (duty cycle × availability)
+    - Wall loading derating
+    - Engineering-level parameters only (no plasma physics simulation)
+
 - **Engineering Constraints**
   - Thermal derating (coolant flow, heat capacity)
   - Radiation damage accumulation (DPA limits)
@@ -133,7 +141,11 @@ ASPL-Radioisotope-Digital-Twin/
 │   ├── limitations.js      # Model limitations registry
 │   ├── atomicMasses.js    # Atomic mass lookup table
 │   ├── coreSanity.js       # Core physics sanity tests
-│   └── mo99Sanity.js       # Mo-99 pathway validation
+│   ├── mo99Sanity.js       # Mo-99 pathway validation
+│   └── sources/            # Neutron source modules
+│       ├── gdtSource.js    # GDT neutron source calculator
+│       ├── sourceConstants.js  # Source constants (D-T fusion)
+│       └── gdtSanity.js     # GDT source validation test
 ├── routing/
 │   └── isotopePathways.js  # Canonical isotope pathways registry (FROZEN)
 └── audit/                  # Frozen audit snapshot
@@ -152,6 +164,10 @@ ASPL-Radioisotope-Digital-Twin/
 The codebase follows strict separation of concerns:
 
 - **Physics Layer** (`model.js`, `advancedPhysics.js`): Pure calculations, no DOM access
+- **Source Layer** (`js/sources/`): Neutron source models (GDT, D-T generator)
+  - Converts engineering parameters → effective neutron yield
+  - Does NOT simulate plasma physics or neutron transport
+  - Planning-grade only
 - **Evaluation Layer** (`routeEvaluator.js`, `routeScoring.js`): Route analysis and ranking
 - **UI Layer** (`ui.js`, `charts.js`): Event handling and visualization only
 - **Data Layer** (`isotopeRoutes.js`, `isotopePathways.js`): Route and pathway definitions
@@ -172,6 +188,8 @@ The codebase follows strict separation of concerns:
 2. **Choose Source Type**
    - Neutron Flux: Enter flux value (cm⁻² s⁻¹)
    - Charged Particle Beam: Enter current, charge, energy
+   - D-T Generator: Standard fusion neutron source
+   - GDT Source: Gas Dynamic Trap neutron source (planning-grade module available)
 
 3. **Set Target Geometry**
    - Target radius (cm)
