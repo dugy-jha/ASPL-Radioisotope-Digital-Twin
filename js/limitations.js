@@ -205,6 +205,17 @@ const ModelLimitations = {
             affects: ['business_planning'],
             status: 'Explicitly Excluded',
             estimated_impact_magnitude: 'No impact on physics calculations. Economic analysis requires external tools.'
+        },
+        {
+            id: 'gdt_source_modeling',
+            title: 'GDT Neutron Source Modeling Scope',
+            description: 'GDT neutron source modeling is planning-grade only. Fusion power, wall loading, duty cycle, and availability are engineering estimates. Plasma physics, confinement, neutron transport, and first-wall lifetime are NOT modeled.',
+            severity: 'moderate',
+            impact: 'GDT source performance is based on engineering-level parameters. Plasma physics, confinement time, fusion gain, and detailed neutron transport are not included.',
+            category: 'source',
+            affects: ['gdt_sources'],
+            status: 'Known – Planning-Grade',
+            estimated_impact_magnitude: 'Source yield accuracy depends on engineering parameter estimates. Plasma physics and transport effects not modeled.'
         }
     ]
 };
