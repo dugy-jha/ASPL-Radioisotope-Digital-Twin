@@ -244,6 +244,20 @@
                 </div>
             </section>
 
+            <!-- Additional visualizations (containers preserved so existing Plotly init does not fail) -->
+            <details class="usa-accordion" id="additionalVisualizationsAccordion">
+                <summary class="usa-accordion__button">Additional Visualizations</summary>
+                <div id="additionalVisualizations">
+                    <div class="chart-grid">
+                        <div class="chart-container"><div id="chartReactionRate" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartDecayChain" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartWaterfall" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartTransport" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartUncertainty" class="chart"></div></div>
+                    </div>
+                </div>
+            </details>
+
             <!-- COLLAPSIBLE SECTIONS (SECONDARY) -->
             <details class="usa-accordion" id="engineeringGuardrails">
                 <summary class="usa-accordion__button">Engineering Guardrails (Screening Only)</summary>
