@@ -270,24 +270,26 @@
 
             <!-- RESULTS PANEL (PRIMARY OUTPUT) -->
             <section class="usa-card results-panel" id="resultsPanel">
-                <h2>Results (Order-of-Magnitude Estimates)</h2>
+                <h2>Results (Planning-Grade Estimates)</h2>
 
                 <div class="grid-row grid-gap">
                     <div class="grid-col-4 result-box">
-                        <h3>Activity at EOB</h3>
+                        <h3 class="has-tooltip" data-tooltip="Radioactivity exactly at the end of the irradiation period.">Activity at EOB</h3>
                         <div id="activityEOB"></div>
                         <small>(order-of-magnitude)</small>
                     </div>
                     <div class="grid-col-4 result-box">
-                        <h3>Delivered Activity</h3>
+                        <h3 class="has-tooltip" data-tooltip="Calculated activity after processing and transport decay losses.">Delivered Activity</h3>
                         <div id="activityDelivered"></div>
                         <small>(order-of-magnitude)</small>
                     </div>
                     <div class="grid-col-4 result-box">
-                        <h3>Feasibility</h3>
+                        <h3 class="has-tooltip" data-tooltip="Feasibility based on activity thresholds and impurity risk assessments.">Feasibility</h3>
                         <div id="feasibilityBadge"></div>
                     </div>
                 </div>
+
+                <div id="globalWarnings" style="margin-top: 1rem;"></div>
 
                 <!-- Keep legacy full results output for audit traceability -->
                 <div id="resultsDisplay" class="results-display" style="margin-top: 1rem;"></div>

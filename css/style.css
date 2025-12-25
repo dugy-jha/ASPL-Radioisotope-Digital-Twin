@@ -1776,9 +1776,84 @@ footer p:last-child {
     line-height: 1.6;
 }
 
-.manufacturing-charts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
+/* ============================================================================
+   UX & INTERACTION IMPROVEMENTS
+   ============================================================================ */
+
+.usa-input--error {
+    border-color: var(--uswds-error) !important;
+    background-color: #fdf2f2 !important;
+    box-shadow: 0 0 0 3px rgba(213, 67, 9, 0.1) !important;
+}
+
+/* Dirty State for the Calculate Button */
+.is-dirty #calculateBtn {
+    animation: pulse-border 2s infinite;
+    box-shadow: 0 0 0 4px rgba(59, 191, 191, 0.4);
+    background-color: var(--aspl-teal) !important;
+}
+
+.is-dirty .results-panel {
+    opacity: 0.7;
+    filter: grayscale(0.5);
+    transition: opacity 0.3s, filter 0.3s;
+}
+
+@keyframes pulse-border {
+    0% { box-shadow: 0 0 0 0 rgba(59, 191, 191, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(59, 191, 191, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 191, 191, 0); }
+}
+
+/* Pulse animation for results panel during update */
+.results-updating {
+    animation: results-pulse 0.5s ease-out;
+}
+
+@keyframes results-pulse {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.01); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Tooltip container */
+.has-tooltip {
+    position: relative;
+    cursor: help;
+    border-bottom: 1px dotted var(--aspl-navy);
+}
+
+.has-tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 8px 12px;
+    background: var(--aspl-navy);
+    color: white;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.has-tooltip:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Responsive Grid Improvements */
+@media (max-width: 1024px) {
+    .grid-row.grid-gap {
+        flex-direction: column;
+    }
+    .grid-col-4, .grid-col-6 {
+        width: 100%;
+        max-width: 100%;
+    }
 }

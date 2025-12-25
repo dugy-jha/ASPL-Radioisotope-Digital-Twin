@@ -284,25 +284,51 @@ const UI = {
     /**
      * Set up event listeners for UI elements
      */
+    /**
+     * Mark the UI as dirty (inputs changed but results not yet recalculated)
+     */
+    markDirty: function() {
+        document.body.classList.add('is-dirty');
+    },
+
     setupEventListeners: function() {
-        // Source type toggle
-        const sourceType = document.getElementById('sourceType');
-        if (sourceType) {
-            sourceType.addEventListener('change', () => {
-                this.toggleSourceType();
+        // UI-ONLY CHANGE — NO PHYSICS MODIFICATION
+        
+        // 1. Core Workflow Listeners (Step 1-4)
+        const workflowInputs = document.querySelectorAll('.usa-input, .usa-select');
+        workflowInputs.forEach(input => {
+            input.addEventListener('input', () => {
+                this.markDirty();
+                // We keep auto-recalc disabled for performance and to emphasize the 'Calculate' button
+                // except for source type toggle which needs immediate UI change
+                if (input.id === 'sourceType') {
+                    this.toggleSourceType();
+                }
+            });
+            input.addEventListener('change', () => {
+                this.markDirty();
+                if (input.id === 'sourceType') {
+                    this.toggleSourceType();
+                }
+            });
+        });
+
+        // 2. Action Bar
+        const calcBtn = document.getElementById('calculateBtn');
+        if (calcBtn) {
+            calcBtn.addEventListener('click', () => {
                 this.updateAllCharts();
             });
         }
 
-        // Comparative analytics checkboxes
-        const comparativeCheckboxes = document.querySelectorAll('#comparativeAnalytics input[type="checkbox"]');
-        comparativeCheckboxes.forEach(checkbox => {
-            checkbox.addEventListener('change', () => {
-                this.updateComparativeCharts();
+        const resetBtn = document.getElementById('resetBtn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                window.location.reload();
             });
-        });
+        }
 
-        // Validation test case buttons
+        // 3. Validation test case buttons (Step 0)
         const loadLu177Test = document.getElementById('loadLu177Test');
         if (loadLu177Test) {
             loadLu177Test.addEventListener('click', () => {
@@ -324,26 +350,15 @@ const UI = {
             });
         }
 
-        // Get all input elements
-        const inputs = document.querySelectorAll('#controls input, #controls select');
-        inputs.forEach(input => {
-            input.addEventListener('input', () => {
-                this.updateAllCharts();
-                // If application context changed, update route explorer
-                if (input.id === 'applicationContext') {
-                    this.populateRouteExplorer();
-                }
-            });
-            input.addEventListener('change', () => {
-                this.updateAllCharts();
-                // If application context changed, update route explorer
-                if (input.id === 'applicationContext') {
-                    this.populateRouteExplorer();
-                }
+        // 4. Comparative analytics checkboxes
+        const comparativeCheckboxes = document.querySelectorAll('#comparativePlots input[type="checkbox"]');
+        comparativeCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                this.updateComparativeCharts();
             });
         });
 
-        // Route registry tabs
+        // 5. Route registry tabs
         const routeTabs = document.querySelectorAll('.route-tab');
         routeTabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -428,6 +443,15 @@ const UI = {
      * Update all charts with current parameter values
      */
     updateAllCharts: function() {
+        const resultsPanel = document.querySelector('.results-panel');
+        if (resultsPanel) {
+            resultsPanel.classList.add('results-updating');
+            setTimeout(() => resultsPanel.classList.remove('results-updating'), 500);
+        }
+
+        // Clear dirty state
+        document.body.classList.remove('is-dirty');
+
         this.updateActivityChart();
         this.updateReactionRateChart();
         this.updateDecayChainChart();
