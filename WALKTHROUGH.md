@@ -1,76 +1,66 @@
-# Radioisotope Digital Twin: Detailed Walkthrough
+# Application Walkthrough: High-Fidelity Feasibility Evaluation
 
-This document provides a high-fidelity walkthrough of the **Generic Radioisotope Production Digital Twin (v2.2.3)**. It covers three core operational modes using realistic engineering parameters and physics-based logic.
+This document provides a high-fidelity walkthrough of the **Generic Radioisotope Production Digital Twin (v2.2.3)**. It covers five core operational modes using realistic engineering parameters and physics-based logic.
 
 ---
 
-## Scenario 1: Therapeutic Radioisotope (Lu-177 n.c.a.)
-**Goal:** Evaluate the feasibility of producing No-Carrier-Added (n.c.a.) Lutetium-177 using a moderated neutron source.
+## Scenario A: Therapeutic Radioisotope (Lu-177 n.c.a.)
+**Goal:** Evaluate the feasibility of producing No-Carrier-Added (n.c.a.) Lutetium-177 for medical therapy using a moderated neutron source.
 
 ### Step 1 — Pathway Selection
-- **Select:** `LU177_NCA — Lu-177 n.c.a.`
-- **Physics Rationale:** This pathway utilizes the $^{176}\text{Lu}(n,\gamma)^{177}\text{Lu}$ reaction. 
-- **Audit Note:** The registry locks the cross-section at ~2090 barns. Notice the **Pathway Warnings** indicating "Resonance Dominated" and "Product Burn-up Critical". This isotope has a huge resonance peak; yield will be highly sensitive to the epithermal spectrum.
+- **Select:** `Lu-177 (n.c.a., Lu-176(n,γ))`
+- **Physics Status:** Notice the **RESONANCE_DOMINATED** and **PRODUCT_BURNUP_CRITICAL** warnings. This indicates that yield will be highly sensitive to the epithermal spectrum and irradiation time. Lu-177 has a massive resonance peak (~2090 barns at thermal).
 
 ### Step 2 — Source / Flux Definition
-- **Source Type:** `Neutron Flux`
-- **Flux ($\phi$):** `1e14` $\text{cm}^{-2}\text{s}^{-1}$
-- **Duty Cycle:** `1.0` (Continuous)
-- **Engineering Rationale:** $10^{14}$ is typical for a high-flux research reactor or a highly moderated advanced fusion source. 
+- **Source Type:** `Neutron Flux (Direct)` or `GDT Neutron Source`
+- **Effective Flux:** `1.0e14` $\text{cm}^{-2}\text{s}^{-1}$ (Typical for a high-flux research reactor or advanced fusion source).
+- **Flux Profile:** `thermal+epithermal` (Critical for resonance capture).
 
 ### Step 3 — Geometry & Target
 - **Target Radius:** `1.5` cm
-- **Target Thickness:** `0.2` cm
-- **Source Distance:** `5` cm (Close-in target)
-- **Parent Density:** `9.42e22` $\text{atoms/cm}^3$ (Typical for Lu2O3 powder)
-- **Engineering Rationale:** A small, thin target minimizes self-shielding while maximizing flux interception.
+- **Target Thickness:** `0.2` cm (Thin target to minimize self-shielding losses).
+- **Source Distance:** `25.0` cm (Typical standoff for moderated assembly).
 
 ### Step 4 — Operations & Logistics
-- **Application Context:** `Medical`
-- **Irradiation Time:** `5` days
-- **Processing Time:** `12` hours
-- **Transport Time:** `24` hours
-- **Physics Rationale:** Lu-177 has a ~6.6 day half-life. A 5-day irradiation reaches ~40% of saturation. Processing and transport delays are critical for medical isotopes.
+- **Irradiation Time:** `7.0` days (Standard medical isotope cycle).
+- **Processing Time:** `12.0` hours (Post-EOB cooling and chemical separation).
+- **Transport Time:** `24.0` hours (Shipping to clinical site).
 
 ### Results Interpretation
-- **Activity at EOB:** Should show ~tens of GBq.
-- **Feasibility:** If the delivered activity exceeds 1 GBq, the **Feasibility Badge** will show a green **PASS**. 
-- **Burn-up Effect:** Because Lu-177 also has a high capture cross-section, the internal physics will apply **Product Burn-up**, slightly suppressing the final yield compared to a linear model.
+- **Activity at EOB:** Expect ~10-100 GBq.
+- **Feasibility:** If delivered activity exceeds 1 GBq, the **Feasibility Badge** will show a green **PASS**.
+- **Burn-up Effect:** The internal physics applies **Product Burn-up**, slightly suppressing yield due to the high capture cross-section of Lu-177 itself.
 
 ---
 
-## Scenario 2: Industrial Generator (Mo-99 Fast Route)
-**Goal:** Evaluate Mo-99 production via the fast neutron $(n,2n)$ reaction using a D-T Generator.
+## Scenario B: Mo-99/Tc-99m Generator System
+**Goal:** Model the production of Mo-99 and its subsequent decay into Tc-99m for medical imaging.
 
 ### Step 1 — Pathway Selection
-- **Select:** `MO99_FAST — Mo-99 (Fast Route)`
-- **Physics Rationale:** Uses the $^{100}\text{Mo}(n,2n)^{99}\text{Mo}$ reaction, which requires 14.1 MeV neutrons from a D-T source.
+- **Select:** `Mo-99 (n,γ) -> Tc-99m`
+- **Physics Status:** Notice the **GENERATOR_DELAY_SENSITIVE** warning.
 
 ### Step 2 — Source / Flux Definition
-- **Source Type:** `Charged Particle Beam` (Simulating a beam-target D-T tube)
-- **Beam Current:** `1e-3` A (1 mA)
-- **Beam Energy:** `0.1` MeV (100 keV for D-T fusion)
-- **Engineering Rationale:** High-power D-T generators operate in the 1-10 mA range.
+- **Source Type:** `Neutron Flux (Direct)`
+- **Effective Flux:** `1.0e14` $\text{cm}^{-2}\text{s}^{-1}$ (Standard high-flux level).
 
 ### Step 3 — Geometry & Target
-- **Target Radius:** `2.0` cm
+- **Target Radius:** `1.0` cm
 - **Target Thickness:** `0.5` cm
-- **Source Distance:** `3` cm
-- **Engineering Rationale:** Since the $(n,2n)$ threshold is high (~8 MeV), the target must be placed as close as possible to the source before the 14 MeV neutrons lose energy.
+- **Target Density:** `10.2` g/cm³ (Mo metal).
 
 ### Step 4 — Operations & Logistics
-- **Application Context:** `Industrial`
-- **Irradiation Time:** `7` days
-- **Processing Time:** `2` hours (Quick chemical strip)
-- **Transport Time:** `48` hours
+- **Irradiation Time:** `5.0` days (Optimized for Mo-99's 66-hour half-life).
+- **Processing Time:** `8.0` hours.
+- **Transport Time:** `12.0` hours.
 
-### Results Interpretation
-- **Impurity Risk:** Look at the **Pathway Warnings**. It will likely show "Low Specific Activity". Because we are starting with stable Mo-100, the Mo-99 produced is chemically identical to the target, meaning we cannot easily achieve high specific activity.
-- **Feasibility:** Will show **FEASIBLE WITH CONSTRAINTS** due to specific activity limits for medical use, though it passes for industrial screening.
+### Advanced Visualization
+- Open **Comparative Analytics** -> **Decay Chain Visualization**.
+- Observe the Mo-99 (parent) and Tc-99m (daughter) activity curves. Observe Tc-99m reaching secular equilibrium with its parent.
 
 ---
 
-## Scenario 3: ASPL Project NECTAR (High-Fidelity Clinical Study)
+## Scenario C: ASPL Project NECTAR (High-Fidelity Clinical Study)
 **Goal:** Illustrate the dual-use "Split-Shift" model for decentralized Lu-177 production at a hospital site.
 
 ### Step 0 — Automatic Configuration
@@ -103,44 +93,52 @@ This document provides a high-fidelity walkthrough of the **Generic Radioisotope
 
 ---
 
-## Scenario 4: Fusion Reactor Concepts (GDT Source)
-**Goal:** Preliminary engineering study for a Gas Dynamic Trap (GDT) neutron source.
+## Scenario D: Fast Neutron Cu-67 Production (D–T Advantage)
+**Goal:** Use 14 MeV neutrons from a D–T generator to produce Cu-67 via $(n,p)$.
 
 ### Step 1 — Pathway Selection
-- **Select:** `MO99_TC99M_GENERATOR` (Reactor Route)
+- **Select:** `Cu-67 (Fast, Zn-67(n,p))`
+- **Physics Status:** Notice **FAST_ONLY** and **RECOIL_LOSSES**.
 
 ### Step 2 — Source / Flux Definition
-- **Source Type:** `GDT Trap (D-T Fusion)`
-- **Fusion Power:** `10` MW
-- **Wall Loading:** `2.0` $\text{MW/m}^2$
-- **Availability:** `0.85` (Typical industrial uptime)
-- **Engineering Rationale:** 10 MW fusion power is a common design target for compact GDT mirrors.
+- **Source Type:** `D-T Generator`
+- **Beam Current:** `50` mA (High-power generator target).
+- **Acceleration Voltage:** `200` kV.
 
 ### Step 3 — Geometry & Target
-- **Target Radius:** `10.0` cm (Large area blanket)
-- **Target Thickness:** `1.0` cm
-- **Source Distance:** `50` cm (First wall radius)
+- **Source-Target Distance:** `5.0` cm (Close-in geometry).
+- **Target Radius:** `2.0` cm.
+- **Target Thickness:** `0.1` cm.
 
 ### Results Interpretation
-- **Effective Yield:** The GDT module converts the 10 MW power ($~3.5 \times 10^{18} \text{ n/s}$) and derates it based on wall loading and uptime.
-- **Feasibility:** This provides an "order-of-magnitude" estimate of whether a 10 MW fusion mirror can replace a traditional fission reactor for Mo-99 production.
+- Notice the **Flux modeling warning** if distance < 3x radius. This warns that the point-source approximation is becoming less accurate at this extreme proximity.
 
 ---
 
-## Scenario 4: Manufacturing & Economics
-**Goal:** Determine the annual production cost per GBq for the GDT scenario.
+## Scenario E: GDT Neutron Source & Manufacturing Analysis
+**Goal:** Engineering study for a Gas Dynamic Trap (GDT) fusion source and its commercial viability.
 
-1.  **Open:** `Manufacturing & Economics` collapsible section.
-2.  **Facility Capital Cost:** `$100,000,000` (Typical for a compact fusion plant).
-3.  **Annual Operating Cost:** `$15,000,000`.
-4.  **Electricity Cost:** `$0.12` /kWh.
-5.  **Review Visualizations:**
-    - **Cost Breakdown:** Shows the dominance of Capital vs. Operating costs.
-    - **Waste Stream:** Projects the total activity accumulation over 20 years.
-    - **Engineering Status:** Verify if the **Thermal Utilization** or **Damage Utilization** exceeds 100% (indicating target failure).
+### Step 1 — Source Configuration
+- **Source Type:** `GDT Neutron Source`
+- **Fusion Power:** `10.0` MW
+- **Duty Cycle:** `0.8` (80% plasma-on time).
+- **Availability:** `0.7` (70% calendar uptime).
+- **Wall Loading:** `2.0` $\text{MW/m}^2$.
+
+### Step 2 — Manufacturing Inputs
+- Scroll to **Manufacturing Analysis**.
+- **CAPEX:** `50.0` M$ (Estimated pilot plant cost).
+- **OPEX (Annual):** `5.0` M$.
+- **Electricity Cost:** `0.12` $/kWh.
+
+### Step 3 — Review Visualizations
+- **Cost Breakdown:** Observe the ratio of CAPEX to OPEX.
+- **Waste Stream:** View cumulative activity of long-lived impurities over 20 years.
+- **Operations Timeline:** View the sequence of irradiation, cooling, and processing.
 
 ---
 
-## Summary of Safeguards
-In all scenarios, keep an eye on the **Top Banner**. If you attempt to change a locked cross-section in the "Advanced Inputs" section, the system will prevent the change and remind you that the **Physics is Locked** for comparative analysis.
-
+## Summary of Physics Guardrails
+- **Self-Shielding:** Yield is automatically derated if target thickness or density is too high.
+- **Thermal Limits:** Check **Engineering Guardrails** if flux levels trigger cooling warnings.
+- **Radiation Damage:** High-flux runs trigger DPA (Displacements Per Atom) warnings, indicating structural risk.

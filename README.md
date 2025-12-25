@@ -99,6 +99,14 @@ import('./js/coreSanity.js').then(m => console.log(m.coreSanityTest()));
 
 ---
 
+## 📖 Usage Walkthrough
+
+For a detailed, step-by-step engineering walkthrough using real-world parameters (Lu-177, Mo-99, Cu-67) and GDT neutron source configurations, see:
+
+👉 **[WALKTHROUGH.md](WALKTHROUGH.md)**
+
+---
+
 ## 🤝 Contributing & License
 
 ### License
