@@ -378,9 +378,14 @@ UI improvements, documentation, and bug fixes are welcome. Please ensure:
 
 ## 📄 License
 
-Copyright © 2024 Generic Radioisotope Production Digital Twin
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-This tool is provided for planning and design purposes only. See disclaimers above.
+**Important Disclaimers:**
+- This software is a planning-grade tool for feasibility screening only
+- Results are order-of-magnitude estimates
+- Does not provide production guarantees or regulatory licensing approval
+- Users must obtain appropriate regulatory approvals independently
+- See LICENSE file for full disclaimers and limitations
 
 ---
 

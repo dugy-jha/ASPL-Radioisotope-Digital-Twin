@@ -1,0 +1,46 @@
+MIT License
+
+Copyright (c) 2024 Generic Radioisotope Production Digital Twin
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+IMPORTANT DISCLAIMERS:
+
+This software is a PLANNING-GRADE tool for feasibility screening and 
+comparative analysis only. Results are order-of-magnitude estimates.
+
+This software does NOT:
+- Provide production guarantees
+- Constitute regulatory licensing approval
+- Replace validated engineering design
+- Replace experimental validation
+- Provide facility licensing or safety case generation
+
+Users must:
+- Obtain appropriate regulatory approvals independently
+- Validate production yields through experimental measurements
+- Ensure compliance with all applicable national and international requirements
+- Not use this software for regulatory yield commitments, facility design basis, 
+  production guarantees, or economic analysis
+
+The authors and copyright holders assume no liability for decisions made based 
+on outputs from this software.
+
