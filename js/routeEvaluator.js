@@ -1230,3 +1230,13 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = { RouteEvaluator };
 }
 
+
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { RouteEvaluator };
+}
+
+// Ensure global availability in browser
+if (typeof window !== 'undefined') {
+    window.RouteEvaluator = RouteEvaluator;
+}

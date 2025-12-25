@@ -991,12 +991,15 @@ const Model = {
         let reactionRate = 0;
         let effectiveFlux = 0;
 
-        if (route.reaction_type === 'n,gamma') {
+        const reaction = route.reaction || route.reaction_type;
+
+        if (reaction === 'n,gamma' || reaction === 'n,γ') {
             // Thermal neutron reaction
-            if (!route.cross_section_thermal) {
+            const cs = route.cross_section_thermal || (route.nominal_sigma_barns && (reaction === 'n,γ' || reaction === 'n,gamma') ? route.nominal_sigma_barns : null);
+            if (!cs) {
                 throw new Error('Thermal cross-section not defined for n,gamma reaction');
             }
-            sigma = route.cross_section_thermal * 1e-24; // Convert barns to cm²
+            sigma = cs * 1e-24; // Convert barns to cm²
             effectiveFlux = conditions.neutronFlux || 1e14; // cm^-2 s^-1
             
             // Calculate number of target atoms
@@ -1008,24 +1011,27 @@ const Model = {
             const N_target = (targetMass * N_AVOGADRO * enrichment) / atomicMass;
             
             reactionRate = this.reactionRate(N_target, sigma, effectiveFlux, f_shield);
-        } else if (route.reaction_type === 'n,p' || route.reaction_type === 'n,2n') {
+        } else if (reaction === 'n,p' || reaction === 'n,2n' || reaction === 'n,d') {
             // Threshold reaction
             if (!conditions.neutronEnergy) {
                 throw new Error('Neutron energy required for threshold reactions');
             }
-            if (!route.cross_section_14_1_MeV) {
+            const cs_14 = route.cross_section_14_1_MeV || (route.nominal_sigma_barns && (reaction === 'n,p' || reaction === 'n,2n' || reaction === 'n,d') ? route.nominal_sigma_barns : null);
+            if (!cs_14) {
                 throw new Error('Cross-section at 14.1 MeV not defined for threshold reaction');
             }
             
             // Convert mb to cm² (1 mb = 1e-27 cm²)
-            const sigma_14_1_MeV = route.cross_section_14_1_MeV * 1e-27; // cm²
+            // Note: nominal_sigma_barns is in barns (1e-24), cross_section_14_1_MeV is in mb (1e-27)
+            const sigma_14_1_MeV = route.cross_section_14_1_MeV ? route.cross_section_14_1_MeV * 1e-27 : route.nominal_sigma_barns * 1e-24;
             
             // Apply threshold activation
+            const threshold = route.threshold_energy !== undefined ? route.threshold_energy : (route.threshold_MeV !== undefined ? route.threshold_MeV : 0);
             sigma = this.thresholdActivation(
                 conditions.neutronEnergy,
-                route.threshold_energy,
-                sigma_14_1_MeV
-            );
+                threshold,
+                sigma_14_1_MeV / 1e-27 // thresholdActivation expects mb
+            ) * 1e-27;
             
             // For threshold reactions, assume fast neutron flux
             effectiveFlux = conditions.neutronFlux || 1e13; // cm^-2 s^-1 (typically lower than thermal)
@@ -1039,7 +1045,7 @@ const Model = {
             const N_target = (targetMass * N_AVOGADRO * enrichment) / atomicMass;
             
             reactionRate = this.reactionRate(N_target, sigma, effectiveFlux, f_shield);
-        } else if (route.reaction_type === 'alpha') {
+        } else if (reaction === 'alpha') {
             // Alpha particle reaction (charged particle beam)
             // Placeholder: use simplified reaction rate calculation
             // Actual calculation would require beam current, target thickness, etc.

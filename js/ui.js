@@ -19,17 +19,24 @@ const UI = {
      */
     init: function() {
         // UI-ONLY CHANGE — NO PHYSICS MODIFICATION
-        this.addPlanningWarningBanner();
-        this.addPhysicsLockBanner();
-        this.disablePhysicsInputs();
-        this.setupEventListeners();
-        this.initializeCharts();
-        this.updateEquations();
-        this.updateAllCharts();
-        this.initializeRouteRegistry();
-        this.initRouteExplorer();
-        this.initLimitations();
-        this.initRouteSelector();
+        // 1. Critical UI Setup (Setup first so user can interact even if charts fail)
+        try { this.initRouteSelector(); } catch(e) { console.error("initRouteSelector failed", e); }
+        try { this.addPlanningWarningBanner(); } catch(e) { console.error("addPlanningWarningBanner failed", e); }
+        try { this.addPhysicsLockBanner(); } catch(e) { console.error("addPhysicsLockBanner failed", e); }
+        try { this.disablePhysicsInputs(); } catch(e) { console.error("disablePhysicsInputs failed", e); }
+        try { this.setupEventListeners(); } catch(e) { console.error("setupEventListeners failed", e); }
+        try { this.initLimitations(); } catch(e) { console.error("initLimitations failed", e); }
+
+        // 2. Data & Calculations
+        try { this.initializeRouteRegistry(); } catch(e) { console.error("initializeRouteRegistry failed", e); }
+        try { this.initRouteExplorer(); } catch(e) { console.error("initRouteExplorer failed", e); }
+        
+        // 3. Visualization & Rendering
+        try { this.initializeCharts(); } catch(e) { console.error("initializeCharts failed", e); }
+        try { this.updateEquations(); } catch(e) { console.error("updateEquations failed", e); }
+        
+        // 4. Initial Run
+        try { this.updateAllCharts(); } catch(e) { console.error("updateAllCharts failed", e); }
     },
 
     /**
@@ -347,17 +354,26 @@ const UI = {
         const beamRow = document.getElementById('beamRow');
         const beamRow2 = document.getElementById('beamRow2');
         const beamRow3 = document.getElementById('beamRow3');
+        const gdtRow = document.getElementById('gdtRow');
 
         if (sourceType === 'neutron') {
-            fluxRow.style.display = 'flex';
-            beamRow.style.display = 'none';
-            beamRow2.style.display = 'none';
-            beamRow3.style.display = 'none';
-        } else {
-            fluxRow.style.display = 'none';
-            beamRow.style.display = 'flex';
-            beamRow2.style.display = 'flex';
-            beamRow3.style.display = 'flex';
+            if (fluxRow) fluxRow.style.display = 'block';
+            if (beamRow) beamRow.style.display = 'none';
+            if (beamRow2) beamRow2.style.display = 'none';
+            if (beamRow3) beamRow3.style.display = 'none';
+            if (gdtRow) gdtRow.style.display = 'none';
+        } else if (sourceType === 'beam') {
+            if (fluxRow) fluxRow.style.display = 'none';
+            if (beamRow) beamRow.style.display = 'block';
+            if (beamRow2) beamRow2.style.display = 'block';
+            if (beamRow3) beamRow3.style.display = 'block';
+            if (gdtRow) gdtRow.style.display = 'none';
+        } else if (sourceType === 'gdt') {
+            if (fluxRow) fluxRow.style.display = 'none';
+            if (beamRow) beamRow.style.display = 'none';
+            if (beamRow2) beamRow2.style.display = 'none';
+            if (beamRow3) beamRow3.style.display = 'none';
+            if (gdtRow) gdtRow.style.display = 'block';
         }
     },
 
@@ -1653,8 +1669,8 @@ const UI = {
      * Update route registry display
      */
     updateRouteRegistry: function() {
-        // Get current tab
-        const activeTab = document.querySelector('.route-tab.active');
+        // Get current tab - Support both old .route-tab and new .route-explorer-tab
+        const activeTab = document.querySelector('.route-explorer-tab.active') || document.querySelector('.route-tab.active');
         if (!activeTab) return;
 
         const tabName = activeTab.dataset.tab;
@@ -1670,9 +1686,28 @@ const UI = {
         } else if (tabName === 'alpha-precursor') {
             routes = IsotopeRouteRegistry.getAlphaPrecursorRoutes();
             containerId = 'alphaPrecursorRoutes';
+        } else if (tabName === 'generator') {
+            routes = IsotopeRouteRegistry.getGeneratorRoutes();
+            containerId = 'generatorRoutes';
+        } else if (tabName === 'alpha') {
+            routes = IsotopeRouteRegistry.getAlphaRoutes();
+            containerId = 'alphaRoutes';
+        } else if (tabName === 'industrial') {
+            routes = IsotopeRouteRegistry.getIndustrialRoutes();
+            containerId = 'industrialRoutes';
         }
 
-        this.displayRoutes(routes, containerId);
+        // Mapping container IDs for route explorer (v2.2.2 USWDS layout)
+        const explorerMapping = {
+            'fastNeutronRoutes': 'fastNeutronRoutesList',
+            'moderatedCaptureRoutes': 'moderatedCaptureRoutesList',
+            'generatorRoutes': 'generatorRoutesList',
+            'alphaRoutes': 'alphaRoutesList',
+            'industrialRoutes': 'industrialRoutesList'
+        };
+        
+        const targetContainerId = explorerMapping[containerId] || containerId;
+        this.displayRoutes(routes, targetContainerId);
     },
 
     /**
@@ -1727,10 +1762,12 @@ const UI = {
      * Get conditions for route evaluation from current UI parameters
      */
     getRouteEvaluationConditions: function() {
-        const sourceType = document.getElementById('sourceType').value;
+        const sourceTypeEl = document.getElementById('sourceType');
+        const sourceType = sourceTypeEl ? sourceTypeEl.value : 'neutron';
         const neutronFlux = this.getParam('flux', 1e14);
-        const neutronEnergy = 14.1; // MeV for fast neutron routes
-        const targetMass = 1.0; // g (placeholder)
+        const beamEnergy = this.getParam('beamEnergy', 14.1);
+        const neutronEnergy = beamEnergy || 14.1; // Use beam energy as neutron energy for fast routes
+        const targetMass = this.getParam('targetMass', 1.0) || 1.0;
         const enrichment = this.getParam('enrichment', 1.0);
         const targetDensity = this.getParam('parentDensity', 5e22);
         const irradiationTime = this.getParam('irradiationTime', 7) * 86400; // Convert days to seconds
@@ -2724,13 +2761,16 @@ if (typeof console !== 'undefined' && console.warn) {
 })();
 
 // Initialize UI when DOM is loaded
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+(function() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            UI.init();
+        });
+    } else {
+        // If script is loaded after DOM content, initialize immediately
         UI.init();
-    });
-} else {
-    UI.init();
-}
+    }
+})();
 
 // ===============================
 // UI ACTION CONTROLS (SAFE)

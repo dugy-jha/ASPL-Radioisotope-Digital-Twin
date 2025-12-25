@@ -566,3 +566,7 @@ const Charts = {
         Plotly.newPlot(containerId, data, layout, this.getConfig());
     }
 };
+
+if (typeof window !== 'undefined') {
+    window.Charts = Charts;
+}

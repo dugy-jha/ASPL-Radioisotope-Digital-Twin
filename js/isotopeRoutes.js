@@ -458,3 +458,8 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = { ISOTOPE_ROUTES };
 }
 
+// Ensure global availability in browser
+if (typeof window !== 'undefined') {
+    window.ISOTOPE_ROUTES = ISOTOPE_ROUTES;
+}
+

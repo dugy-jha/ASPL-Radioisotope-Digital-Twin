@@ -330,3 +330,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = { RouteScoring };
 }
 
+
+if (typeof window !== 'undefined') {
+    window.IsotopeRouteScoring = IsotopeRouteScoring;
+}

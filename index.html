@@ -110,6 +110,7 @@
                 <select id="sourceType" class="usa-select">
                     <option value="neutron">Neutron Flux</option>
                     <option value="beam">Charged Particle Beam</option>
+                    <option value="gdt">GDT Trap (D-T Fusion)</option>
                 </select>
 
                 <div id="sourceInputs">
@@ -117,6 +118,17 @@
                         <label class="usa-label" for="flux">Neutron Flux φ (cm⁻² s⁻¹)</label>
                         <input class="usa-input" type="number" id="flux" value="1e14" step="1e12" min="0" />
                         <p class="usa-hint">Best practice: transport-derived or measured flux at target plane.</p>
+                    </div>
+
+                    <div id="gdtRow" style="display:none;">
+                        <label class="usa-label" for="fusionPower">Fusion Power (MW)</label>
+                        <input class="usa-input" type="number" id="fusionPower" value="10" step="1" min="0" />
+                        
+                        <label class="usa-label" for="wallLoading">Wall Loading (MW/m²)</label>
+                        <input class="usa-input" type="number" id="wallLoading" value="2" step="0.1" min="0" />
+                        
+                        <label class="usa-label" for="availability">Availability (fraction)</label>
+                        <input class="usa-input" type="number" id="availability" value="0.8" step="0.05" min="0" max="1" />
                     </div>
 
                     <div id="beamRow" style="display:none;">
@@ -383,8 +395,49 @@
             <!-- Diagnostics (kept for sanity tests) -->
             <details class="usa-accordion" id="diagnosticsAccordion">
                 <summary class="usa-accordion__button">Diagnostics</summary>
-                <button id="coreTestBtn" class="btn-validation">Run Core Sanity Test</button>
-                <pre id="coreTestOut"></pre>
+                <div class="usa-card core-step">
+                    <button id="coreTestBtn" class="usa-button usa-button--outline">Run Core Sanity Test</button>
+                    <pre id="coreTestOut" class="usa-prose" style="margin-top: 1rem; padding: 1rem; background: #f0f0f0;"></pre>
+                </div>
+            </details>
+
+            <!-- MANUFACTURING ANALYSIS (Collapsible) -->
+            <details class="usa-accordion" id="manufacturingAccordion">
+                <summary class="usa-accordion__button">Manufacturing & Economics (Planning-Grade)</summary>
+                <div id="manufacturingPanel" class="usa-prose">
+                    <div class="usa-card core-step">
+                        <h3>Manufacturing Inputs</h3>
+                        <div class="grid-row grid-gap">
+                            <div class="grid-col-6">
+                                <label class="usa-label" for="facilityCapitalCost">Facility Capital Cost (USD)</label>
+                                <input class="usa-input" type="number" id="facilityCapitalCost" value="10000000" step="1000000" />
+                                
+                                <label class="usa-label" for="annualOperatingCost">Annual Operating Cost (USD)</label>
+                                <input class="usa-input" type="number" id="annualOperatingCost" value="2000000" step="100000" />
+                            </div>
+                            <div class="grid-col-6">
+                                <label class="usa-label" for="electricityCost">Electricity Cost (USD/kWh)</label>
+                                <input class="usa-input" type="number" id="electricityCost" value="0.10" step="0.01" />
+                                
+                                <label class="usa-label" for="sourceUptime">Source Uptime Fraction (0-1)</label>
+                                <input class="usa-input" type="number" id="sourceUptime" value="0.85" step="0.05" min="0" max="1" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="manufacturingResults" class="usa-card results-panel" style="margin-top: 2rem;">
+                        <h3>Manufacturing Results</h3>
+                        <div id="manufacturingResultsContent"></div>
+                    </div>
+
+                    <div class="chart-grid" style="margin-top: 2rem;">
+                        <div class="chart-container"><div id="chartCostBreakdown" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartElectricityConsumption" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartWasteStream" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartOperationsTimeline" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartEngineeringConstraints" class="chart"></div></div>
+                    </div>
+                </div>
             </details>
         </main>
 

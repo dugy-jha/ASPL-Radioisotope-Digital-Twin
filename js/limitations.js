@@ -236,3 +236,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = { ModelLimitations };
 }
 
+
+if (typeof window !== 'undefined') {
+    window.ModelLimitations = ModelLimitations;
+}
