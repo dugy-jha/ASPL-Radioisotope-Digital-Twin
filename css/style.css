@@ -31,6 +31,109 @@ body {
 }
 
 /* ============================================================================
+   USWDS-LIKE TOKENS (CSS-only alignment; no USWDS JS)
+   ============================================================================ */
+
+:root {
+    --uswds-primary: #005ea2;
+    --uswds-warning: #fdb81e;
+    --uswds-error: #d54309;
+    --uswds-neutral: #565c65;
+    --uswds-surface: #ffffff;
+    --uswds-surface-alt: #f0f8ff;
+}
+
+.usa-hint {
+    font-size: 0.9rem;
+    color: var(--uswds-neutral);
+}
+
+.usa-alert {
+    border-left: 8px solid var(--uswds-primary);
+    background: #eef7ff;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.usa-alert__heading {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.4rem;
+}
+
+.usa-alert__text {
+    margin: 0.35rem 0;
+    color: #1b1b1b;
+}
+
+.usa-card.core-step {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    border: 1px solid #dfe1e2;
+    border-radius: 8px;
+    background: var(--uswds-surface);
+}
+
+.results-panel {
+    border: 2px solid var(--uswds-primary);
+}
+
+.result-box {
+    background: var(--uswds-surface-alt);
+    padding: 1rem;
+    border-radius: 4px;
+    border: 1px solid #dfe1e2;
+}
+
+.usa-label {
+    display: block;
+    font-weight: 600;
+    margin-top: 0.75rem;
+    margin-bottom: 0.35rem;
+}
+
+.usa-input,
+.usa-select {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #bdc3c7;
+    border-radius: 4px;
+    font-size: 0.95em;
+    background-color: #ffffff;
+}
+
+.usa-input:focus,
+.usa-select:focus {
+    outline: none;
+    border-color: var(--uswds-primary);
+    box-shadow: 0 0 0 3px rgba(0, 94, 162, 0.12);
+}
+
+.usa-accordion {
+    margin-top: 1rem;
+    border: 1px solid #dfe1e2;
+    border-radius: 8px;
+    background: var(--uswds-surface);
+}
+
+.usa-accordion__button {
+    cursor: pointer;
+    padding: 1rem 1.25rem;
+    font-weight: 600;
+    color: #1b1b1b;
+    background: #f8f9fa;
+    border-radius: 8px;
+    user-select: none;
+}
+
+.usa-footer--slim {
+    margin-top: 2rem;
+    padding: 1rem 0.5rem;
+    border-top: 1px solid #dfe1e2;
+    color: var(--uswds-neutral);
+}
+
+/* ============================================================================
    HEADER
    ============================================================================ */
 

@@ -38,715 +38,317 @@
     </script>
 </head>
 <body>
-    <div class="container">
-        <!-- HEADER: Simplified -->
-        <header>
-            <h1>Generic Radioisotope Production Digital Twin</h1>
-            <p class="subtitle">Planning-grade physics tool for comparative analysis</p>
-        </header>
-
-        <main>
-            <!-- LAYER 1: ALWAYS VISIBLE - Core Workflow -->
-            
-            <!-- Planning-Grade Warning Banner -->
-            <div class="planning-warning-banner" id="planningWarningBanner">
-                <strong>⚠️ Planning-Grade Tool:</strong> This tool is intended for feasibility screening and comparative analysis only. Results are order-of-magnitude estimates. It does not provide production guarantees or licensing approval.
+    <div class="container app-shell">
+        <!-- TOP BANNER (PLANNING WARNING) -->
+        <section class="usa-alert usa-alert--info" id="planningWarningBanner">
+            <div class="usa-alert__body">
+                <h2 class="usa-alert__heading">Generic Radioisotope Production Digital Twin</h2>
+                <p class="usa-alert__text">
+                    Planning-grade physics tool for comparative analysis.
+                    Results are order-of-magnitude estimates only.
+                    No production guarantees or licensing approval.
+                </p>
+                <p class="usa-alert__text">
+                    🔒 Physics pathways are locked. Only source, moderation, and geometry may be changed.
+                </p>
             </div>
+        </section>
 
-            <!-- Walkthrough: High-fidelity setup (guidance only; no physics changes) -->
-            <details class="collapsible-section reference-section" id="walkthroughHighFidelity">
-                <summary><h2>Walkthrough: Higher-Fidelity Input Setup (Guidance)</h2></summary>
-                <section class="walkthrough-section">
-                    <p class="section-description"><strong>Purpose:</strong> This checklist helps you supply higher-quality <em>inputs</em> (measured/validated where possible). It does <strong>not</strong> change the model’s underlying assumptions or physics scope.</p>
-                    <div class="walkthrough-grid">
-                        <div class="walkthrough-card">
-                            <h3>Step 1 — Pick a pathway (physics locked)</h3>
-                            <p>Use the <strong>Isotope Route Explorer</strong> to select a pathway. Cross-sections, decay chains, chemistry defaults, and warnings come from the canonical registry and are <strong>not editable</strong>.</p>
-                        </div>
-                        <div class="walkthrough-card">
-                            <h3>Step 2 — Supply a defensible flux / source term</h3>
-                            <ul class="walkthrough-list">
-                                <li><strong>Best</strong>: Flux at target from transport (MCNP/OpenMC/Serpent) for your geometry and spectrum.</li>
-                                <li><strong>Good</strong>: Flux inferred from activation foils / dosimetry near the target plane.</li>
-                                <li><strong>Planning</strong>: Use design estimates; expect ≥2× uncertainty in close-in geometries.</li>
-                            </ul>
-                        </div>
-                        <div class="walkthrough-card">
-                            <h3>Step 3 — Geometry and target definition</h3>
-                            <ul class="walkthrough-list">
-                                <li><strong>Measure</strong> target radius/thickness and source distance at the same reference points used in the physical setup.</li>
-                                <li><strong>Provide</strong> realistic target atom density (advanced panel) derived from density, composition, and enrichment.</li>
-                            </ul>
-                        </div>
-                        <div class="walkthrough-card">
-                            <h3>Step 4 — Operations realism</h3>
-                            <ul class="walkthrough-list">
-                                <li>Use realistic irradiation time and duty cycle (include planned shutdowns).</li>
-                                <li>Use realistic chemistry + transport times for your logistics chain.</li>
-                            </ul>
-                        </div>
-                        <div class="walkthrough-card">
-                            <h3>Step 5 — Engineering constraints and manufacturing</h3>
-                            <ul class="walkthrough-list">
-                                <li>Set cooling and damage parameters to reflect actual limits (not optimistic design targets).</li>
-                                <li>Use manufacturing inputs for <strong>comparative</strong> cost/energy/waste screening only (±50–100% typical uncertainty).</li>
-                            </ul>
-                        </div>
-                        <div class="walkthrough-card">
-                            <h3>Step 6 — Interpret results safely</h3>
-                            <p>Use outputs for <strong>ranking and feasibility screening</strong>. Do not use for guarantees, licensing basis, or economic commitments.</p>
-                        </div>
-                    </div>
-                </section>
-            </details>
+        <main class="usa-prose">
+            <!-- STEP 1 — PATHWAY SELECTION (MOST PROMINENT) -->
+            <section class="usa-card core-step" id="pathwayStep">
+                <h2>Step 1 — Select Isotope Pathway (Physics Locked)</h2>
 
-            <!-- Core Inputs Section -->
-            <section id="coreInputs" class="core-inputs-section">
-                <h2>Core Parameters</h2>
-                
-                <div class="core-inputs-grid">
-                    <div class="core-input-group">
-                        <label for="applicationContext">Application Context:</label>
-                        <select id="applicationContext">
-                            <option value="medical">Medical (viable ≥ 1 GBq)</option>
-                            <option value="industrial">Industrial (viable ≥ 0.1 GBq)</option>
-                            <option value="research">Research (viable ≥ 0.01 GBq)</option>
-                        </select>
-                        <small class="input-hint">Controls the feasibility activity threshold only (screening context). Does not change physics.</small>
+                <label class="usa-label" for="routeSelector">Isotope Route</label>
+                <select id="routeSelector" class="usa-select"></select>
+
+                <p class="usa-hint">
+                    Cross-sections, decay chains, and chemistry defaults are fixed by the canonical pathway registry.
+                </p>
+
+                <div id="routeWarnings"></div>
+
+                <!-- Keep the full route explorer available (UI-only); used for rich route cards -->
+                <div id="routeExplorer" class="route-explorer-section">
+                    <div class="route-explorer-tabs">
+                        <button class="route-explorer-tab active" data-tab="fast-neutron" onclick="UI.switchRouteExplorerTab('fast-neutron')">Fast Neutron Routes</button>
+                        <button class="route-explorer-tab" data-tab="moderated-capture" onclick="UI.switchRouteExplorerTab('moderated-capture')">Moderated Capture</button>
+                        <button class="route-explorer-tab" data-tab="generator" onclick="UI.switchRouteExplorerTab('generator')">Generator & Decay Chains</button>
+                        <button class="route-explorer-tab" data-tab="alpha" onclick="UI.switchRouteExplorerTab('alpha')">Alpha & Strategic</button>
+                        <button class="route-explorer-tab" data-tab="industrial" onclick="UI.switchRouteExplorerTab('industrial')">Industrial</button>
                     </div>
-                    
-                    <div class="core-input-group">
-                        <label for="sourceType">Source Type:</label>
-                        <select id="sourceType">
-                            <option value="neutron">Neutron Flux</option>
-                            <option value="beam">Charged Particle Beam</option>
-                        </select>
-                        <small class="input-hint">Choose how the source term is specified. For higher fidelity, prefer measured/transport-derived values.</small>
+
+                    <div id="fastNeutronTab" class="route-explorer-tab-content active">
+                        <div id="fastNeutronRoutesList" class="routes-list"></div>
                     </div>
-                    
-                    <div class="core-input-group" id="fluxRow">
-                        <label for="flux">Neutron Flux φ (cm⁻² s⁻¹):</label>
-                        <input type="number" id="flux" value="1e14" step="1e12" min="0">
-                        <small class="input-hint"><strong>Target-plane flux</strong>. Best from MCNP/OpenMC/Serpent or dosimetry. Typical ranges: 1e11–1e16 depending on source/geometry.</small>
+                    <div id="moderatedCaptureTab" class="route-explorer-tab-content">
+                        <div id="moderatedCaptureRoutesList" class="routes-list"></div>
                     </div>
-                    
-                    <div class="core-input-group" id="beamRow" style="display:none;">
-                        <label for="beamCurrent">Beam Current I (A):</label>
-                        <input type="number" id="beamCurrent" value="1e-6" step="1e-7" min="0">
-                        <small class="input-hint">Electrical beam current. Use measured average current (duty-cycle handled separately).</small>
+                    <div id="generatorTab" class="route-explorer-tab-content">
+                        <div id="generatorRoutesList" class="routes-list"></div>
                     </div>
-                    
-                    <div class="core-input-group" id="beamRow2" style="display:none;">
-                        <label for="particleCharge">Particle Charge q (e):</label>
-                        <input type="number" id="particleCharge" value="1" step="1" min="1">
-                        <small class="input-hint">Charge state in elementary charges (e). Protons = 1, alpha = 2.</small>
+                    <div id="alphaTab" class="route-explorer-tab-content">
+                        <div id="alphaRoutesList" class="routes-list"></div>
                     </div>
-                    
-                    <div class="core-input-group" id="beamRow3" style="display:none;">
-                        <label for="beamEnergy">Particle Kinetic Energy E (MeV):</label>
-                        <input type="number" id="beamEnergy" value="10" step="0.1" min="0">
-                        <small class="input-hint">Beam energy at target. For higher fidelity use post-degrader / energy-loss estimate (SRIM) at target entrance.</small>
-                    </div>
-                    
-                    <div class="core-input-group">
-                        <label for="targetRadius">Target Radius r (cm):</label>
-                        <input type="number" id="targetRadius" value="1.0" step="0.1" min="0.1">
-                        <small class="input-hint">Physical radius of the irradiated face. Large targets can violate point-source assumptions (see console warnings).</small>
-                    </div>
-                    
-                    <div class="core-input-group">
-                        <label for="targetThickness">Target Thickness d (cm):</label>
-                        <input type="number" id="targetThickness" value="0.1" step="0.01" min="0.01">
-                        <small class="input-hint">Along the flux/beam direction. Thick targets increase self-shielding and burn-up sensitivity (planning-grade).</small>
-                    </div>
-                    
-                    <div class="core-input-group">
-                        <label for="sourceDistance">Source-to-Target Distance d (cm):</label>
-                        <input type="number" id="sourceDistance" value="10" step="1" min="1">
-                        <small class="input-hint">Center-to-center distance used for solid-angle geometry. If < 3× radius, flux may be overestimated (warning is emitted).</small>
-                    </div>
-                    
-                    <div class="core-input-group">
-                        <label for="irradiationTime">Irradiation Duration t_irr (days):</label>
-                        <input type="number" id="irradiationTime" value="7" step="0.1" min="0.001">
-                        <small class="input-hint">Total irradiation time. For higher fidelity, include planned interruptions via duty cycle and realistic uptime.</small>
+                    <div id="industrialTab" class="route-explorer-tab-content">
+                        <div id="industrialRoutesList" class="routes-list"></div>
                     </div>
                 </div>
             </section>
 
-            <!-- Results Section - Prominent -->
-            <section id="results" class="results-section prominent">
-                <h2>Results <span class="estimate-label">(order-of-magnitude estimates)</span></h2>
-                <div id="resultsDisplay" class="results-display">
-                    <!-- Results will be displayed here -->
+            <!-- STEP 2 — SOURCE / FLUX INPUT -->
+            <section class="usa-card core-step" id="sourceStep">
+                <h2>Step 2 — Source / Flux Definition</h2>
+
+                <label class="usa-label" for="sourceType">Source Type</label>
+                <select id="sourceType" class="usa-select">
+                    <option value="neutron">Neutron Flux</option>
+                    <option value="beam">Charged Particle Beam</option>
+                </select>
+
+                <div id="sourceInputs">
+                    <div id="fluxRow">
+                        <label class="usa-label" for="flux">Neutron Flux φ (cm⁻² s⁻¹)</label>
+                        <input class="usa-input" type="number" id="flux" value="1e14" step="1e12" min="0" />
+                        <p class="usa-hint">Best practice: transport-derived or measured flux at target plane.</p>
+                    </div>
+
+                    <div id="beamRow" style="display:none;">
+                        <label class="usa-label" for="beamCurrent">Beam Current I (A)</label>
+                        <input class="usa-input" type="number" id="beamCurrent" value="1e-6" step="1e-7" min="0" />
+                    </div>
+
+                    <div id="beamRow2" style="display:none;">
+                        <label class="usa-label" for="particleCharge">Particle Charge q (e)</label>
+                        <input class="usa-input" type="number" id="particleCharge" value="1" step="1" min="1" />
+                    </div>
+
+                    <div id="beamRow3" style="display:none;">
+                        <label class="usa-label" for="beamEnergy">Particle Kinetic Energy E (MeV)</label>
+                        <input class="usa-input" type="number" id="beamEnergy" value="10" step="0.1" min="0" />
+                    </div>
+
+                    <label class="usa-label" for="dutyCycle">Source Duty Cycle (fraction)</label>
+                    <input class="usa-input" type="number" id="dutyCycle" value="1.0" step="0.01" min="0" max="1" />
                 </div>
+
+                <div id="globalWarnings"></div>
             </section>
 
-            <!-- Main Activity Chart - Always Visible -->
-            <section id="mainChart" class="main-chart-section">
+            <!-- STEP 3 — GEOMETRY & TARGET -->
+            <section class="usa-card core-step" id="geometryStep">
+                <h2>Step 3 — Geometry & Target</h2>
+
+                <div class="grid-row grid-gap">
+                    <div class="grid-col-4">
+                        <label class="usa-label" for="targetRadius">Target Radius (cm)</label>
+                        <input class="usa-input" type="number" id="targetRadius" value="1.0" step="0.1" min="0.1" />
+                    </div>
+                    <div class="grid-col-4">
+                        <label class="usa-label" for="targetThickness">Target Thickness (cm)</label>
+                        <input class="usa-input" type="number" id="targetThickness" value="0.1" step="0.01" min="0.01" />
+                    </div>
+                    <div class="grid-col-4">
+                        <label class="usa-label" for="sourceDistance">Source Distance (cm)</label>
+                        <!-- NOTE: keep ID `sourceDistance` for backward-compatible calculations -->
+                        <input class="usa-input" type="number" id="sourceDistance" value="10" step="1" min="1" />
+                    </div>
+                </div>
+
+                <label class="usa-label" for="parentDensity">Parent Atom Number Density (atoms/cm³)</label>
+                <input class="usa-input" type="number" id="parentDensity" value="5e22" step="1e21" min="0" />
+                <p class="usa-hint">For higher fidelity, derive from target density, molar mass, and enrichment.</p>
+
+                <div id="geometryWarnings"></div>
+            </section>
+
+            <!-- STEP 4 — OPERATIONS & LOGISTICS -->
+            <section class="usa-card core-step" id="opsStep">
+                <h2>Step 4 — Operations & Logistics</h2>
+
+                <label class="usa-label" for="applicationContext">Application Context</label>
+                <select id="applicationContext" class="usa-select">
+                    <option value="medical">Medical (viable ≥ 1 GBq)</option>
+                    <option value="industrial">Industrial (viable ≥ 0.1 GBq)</option>
+                    <option value="research">Research (viable ≥ 0.01 GBq)</option>
+                </select>
+
+                <label class="usa-label" for="irradiationTime">Irradiation Time (days)</label>
+                <input class="usa-input" type="number" id="irradiationTime" value="7" step="0.1" min="0.001" />
+
+                <label class="usa-label" for="chemistryDelay">Processing Time (hours)</label>
+                <!-- NOTE: keep ID `chemistryDelay` for backward-compatible calculations -->
+                <input class="usa-input" type="number" id="chemistryDelay" value="24" step="1" min="0" />
+
+                <label class="usa-label" for="transportTime">Transport Time (hours)</label>
+                <input class="usa-input" type="number" id="transportTime" value="48" step="1" min="0" />
+            </section>
+
+            <!-- RESULTS PANEL (PRIMARY OUTPUT) -->
+            <section class="usa-card results-panel" id="resultsPanel">
+                <h2>Results (Order-of-Magnitude Estimates)</h2>
+
+                <div class="grid-row grid-gap">
+                    <div class="grid-col-4 result-box">
+                        <h3>Activity at EOB</h3>
+                        <div id="activityEOB"></div>
+                        <small>(order-of-magnitude)</small>
+                    </div>
+                    <div class="grid-col-4 result-box">
+                        <h3>Delivered Activity</h3>
+                        <div id="activityDelivered"></div>
+                        <small>(order-of-magnitude)</small>
+                    </div>
+                    <div class="grid-col-4 result-box">
+                        <h3>Feasibility</h3>
+                        <div id="feasibilityBadge"></div>
+                    </div>
+                </div>
+
+                <!-- Keep legacy full results output for audit traceability -->
+                <div id="resultsDisplay" class="results-display" style="margin-top: 1rem;"></div>
+            </section>
+
+            <!-- PRIMARY CHART (unchanged container ID) -->
+            <section class="usa-card core-step" id="primaryPlot">
                 <h2>Activity vs Irradiation Time</h2>
                 <div class="chart-container main-chart">
                     <div id="chartActivity" class="chart"></div>
                 </div>
             </section>
 
-            <!-- Isotope Route Explorer - Always Visible -->
-            <section id="routeExplorer" class="route-explorer-section">
-                <h2>Isotope Route Explorer</h2>
-                <p class="section-description">Select isotope pathway for evaluation. Physics parameters are locked.</p>
-                
-                <div class="route-explorer-tabs">
-                    <button class="route-explorer-tab active" data-tab="fast-neutron" onclick="UI.switchRouteExplorerTab('fast-neutron')">Fast Neutron Routes</button>
-                    <button class="route-explorer-tab" data-tab="moderated-capture" onclick="UI.switchRouteExplorerTab('moderated-capture')">Moderated Capture</button>
-                    <button class="route-explorer-tab" data-tab="generator" onclick="UI.switchRouteExplorerTab('generator')">Generator & Decay Chains</button>
-                    <button class="route-explorer-tab" data-tab="alpha" onclick="UI.switchRouteExplorerTab('alpha')">Alpha & Strategic</button>
-                    <button class="route-explorer-tab" data-tab="industrial" onclick="UI.switchRouteExplorerTab('industrial')">Industrial</button>
-                </div>
+            <!-- COLLAPSIBLE SECTIONS (SECONDARY) -->
+            <details class="usa-accordion" id="engineeringGuardrails">
+                <summary class="usa-accordion__button">Engineering Guardrails (Screening Only)</summary>
+                <div id="engineeringPanel">
+                    <!-- Keep existing engineering inputs (IDs preserved) -->
+                    <div class="usa-card core-step">
+                        <label class="usa-label" for="coolantFlow">Coolant Mass Flow Rate (kg/s)</label>
+                        <input class="usa-input" type="number" id="coolantFlow" value="0.1" step="0.01" min="0.001" />
 
-                <div id="fastNeutronTab" class="route-explorer-tab-content active">
-                    <div id="fastNeutronRoutesList" class="routes-list"></div>
-                </div>
+                        <label class="usa-label" for="heatCapacity">Coolant Heat Capacity (J/(kg·K))</label>
+                        <input class="usa-input" type="number" id="heatCapacity" value="4184" step="100" min="100" />
 
-                <div id="moderatedCaptureTab" class="route-explorer-tab-content">
-                    <div id="moderatedCaptureRoutesList" class="routes-list"></div>
-                </div>
+                        <label class="usa-label" for="deltaTMax">Max Allowable ΔT (K)</label>
+                        <input class="usa-input" type="number" id="deltaTMax" value="50" step="1" min="1" />
 
-                <div id="generatorTab" class="route-explorer-tab-content">
-                    <div id="generatorRoutesList" class="routes-list"></div>
-                </div>
+                        <label class="usa-label" for="dpaLimit">Damage Limit (DPA)</label>
+                        <input class="usa-input" type="number" id="dpaLimit" value="10" step="0.1" min="0.1" />
 
-                <div id="alphaTab" class="route-explorer-tab-content">
-                    <div id="alphaRoutesList" class="routes-list"></div>
-                </div>
+                        <label class="usa-label" for="dpaRate">Damage Rate (DPA/s)</label>
+                        <input class="usa-input" type="number" id="dpaRate" value="1e-8" step="1e-9" min="0" />
+                    </div>
 
-                <div id="industrialTab" class="route-explorer-tab-content">
-                    <div id="industrialRoutesList" class="routes-list"></div>
+                    <!-- Existing charts (IDs preserved) -->
+                    <div class="chart-grid">
+                        <div class="chart-container"><div id="chartTemperature" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartDamage" class="chart"></div></div>
+                    </div>
                 </div>
-            </section>
+            </details>
 
-            <!-- LAYER 2: COLLAPSIBLE - Advanced Parameters -->
-            
-            <details class="collapsible-section" id="advancedParams">
-                <summary><h2>Advanced Parameters</h2></summary>
-                
-                <section id="controls" class="controls-section">
+            <details class="usa-accordion" id="comparativeAccordion">
+                <summary class="usa-accordion__button">Comparative Analytics</summary>
+                <div id="comparativePlots">
+                    <!-- Keep existing comparative inputs/charts (IDs preserved) -->
+                    <div class="comparative-controls">
+                        <div class="control-group">
+                            <h3>Comparison Set 1: Therapeutic Isotopes</h3>
+                            <div class="comparison-set">
+                                <label><input type="checkbox" id="compareLu177" checked> Lu-177 (Lu-176(n,γ))</label>
+                                <label><input type="checkbox" id="compareSc47" checked> Sc-47 (Ti-47(n,p))</label>
+                                <label><input type="checkbox" id="compareCu67" checked> Cu-67 (Zn-67(n,p))</label>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <h3>Comparison Set 2: Mo-99 Routes</h3>
+                            <div class="comparison-set">
+                                <label><input type="checkbox" id="compareMo99Reactor" checked> Mo-99 Reactor Route (Mo-98(n,γ))</label>
+                                <label><input type="checkbox" id="compareMo99Fast" checked> Mo-99 Fast Route (Mo-100(n,2n))</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparative-charts-grid">
+                        <div class="chart-container"><div id="chartComparativeActivity" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartComparativeSpecificActivity" class="chart"></div></div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Keep advanced parameters available for audit, but out of the core flow -->
+            <details class="usa-accordion" id="advancedAccordion">
+                <summary class="usa-accordion__button">Advanced Inputs (Physics Locked Where Applicable)</summary>
+                <div id="controls" class="controls-section">
                     <div class="control-group">
                         <h3>Nuclear Parameters</h3>
                         <div class="input-row">
-                            <label for="halfLife">Product Half-Life T₁/₂ (days):</label>
+                            <label for="halfLife">Product Half-Life (days)</label>
                             <input type="number" id="halfLife" value="1.0" step="0.1" min="0.001">
-                            <small class="input-hint">Radioactive half-life of produced isotope</small>
                         </div>
                         <div class="input-row">
-                            <label for="crossSection">Activation Cross-Section σ (cm²):</label>
+                            <label for="crossSection">Activation Cross-Section σ (cm²) (locked)</label>
                             <input type="number" id="crossSection" value="1e-24" step="1e-25" min="0" format="scientific">
-                            <small class="input-hint">Microscopic cross-section for production reaction (locked)</small>
                         </div>
                         <div class="input-row">
-                            <label for="enrichment">Parent Isotope Enrichment (fraction):</label>
+                            <label for="enrichment">Parent Enrichment (fraction)</label>
                             <input type="number" id="enrichment" value="1.0" step="0.01" min="0" max="1">
-                            <small class="input-hint">Atomic fraction of target isotope in target material</small>
                         </div>
                         <div class="input-row">
-                            <label for="sigmaBurn">Burn-Up Cross-Section σ_burn (cm²):</label>
+                            <label for="sigmaBurn">Parent Burn-Up Cross-Section σ_burn (cm²) (locked)</label>
                             <input type="number" id="sigmaBurn" value="1e-24" step="1e-25" min="0">
-                            <small class="input-hint">Cross-section for parent isotope depletion (locked)</small>
-                        </div>
-                    </div>
-
-                    <div class="control-group">
-                        <h3>Source Parameters</h3>
-                        <div class="input-row">
-                            <label for="dutyCycle">Source Duty Cycle (fraction):</label>
-                            <input type="number" id="dutyCycle" value="1.0" step="0.01" min="0" max="1">
-                            <small class="input-hint">Fraction of time source is active</small>
-                        </div>
-                    </div>
-
-                    <div class="control-group">
-                        <h3>Geometry Parameters</h3>
-                        <div class="input-row">
-                            <label for="parentDensity">Parent Atom Number Density N_parent (atoms/cm³):</label>
-                            <input type="number" id="parentDensity" value="5e22" step="1e21" min="0">
-                            <small class="input-hint">Number density of target isotope atoms (assumed uniform)</small>
-                        </div>
-                    </div>
-
-                    <div class="control-group">
-                        <h3>Engineering Parameters</h3>
-                        <div class="input-row">
-                            <label for="coolantFlow">Coolant Mass Flow Rate ṁ (kg/s):</label>
-                            <input type="number" id="coolantFlow" value="0.1" step="0.01" min="0.001">
-                            <small class="input-hint">Mass flow rate of cooling medium</small>
-                        </div>
-                        <div class="input-row">
-                            <label for="heatCapacity">Coolant Specific Heat Capacity C_p (J/(kg·K)):</label>
-                            <input type="number" id="heatCapacity" value="4184" step="100" min="100">
-                            <small class="input-hint">Specific heat capacity of coolant</small>
-                        </div>
-                        <div class="input-row">
-                            <label for="deltaTMax">Maximum Allowable Temperature Rise ΔT_max (K):</label>
-                            <input type="number" id="deltaTMax" value="50" step="1" min="1">
-                            <small class="input-hint">Design limit for temperature increase</small>
-                        </div>
-                        <div class="input-row">
-                            <label for="dpaLimit">Damage Limit (DPA):</label>
-                            <input type="number" id="dpaLimit" value="10" step="0.1" min="0.1">
-                            <small class="input-hint">Displacements per atom design limit</small>
-                        </div>
-                        <div class="input-row">
-                            <label for="dpaRate">Damage Accumulation Rate (DPA/s):</label>
-                            <input type="number" id="dpaRate" value="1e-8" step="1e-9" min="0">
-                            <small class="input-hint">Rate of displacement damage accumulation</small>
-                        </div>
-                    </div>
-
-                    <div class="control-group">
-                        <h3>Operations Parameters</h3>
-                        <div class="input-row">
-                            <label for="chemistryDelay">Post-EOB Processing Time (hours):</label>
-                            <input type="number" id="chemistryDelay" value="24" step="1" min="0">
-                            <small class="input-hint">Time between end-of-bombardment and completion of chemical processing</small>
-                        </div>
-                        <div class="input-row">
-                            <label for="transportTime">Transport Duration (hours):</label>
-                            <input type="number" id="transportTime" value="48" step="1" min="0">
-                            <small class="input-hint">Time from processing completion to delivery</small>
-                        </div>
-                        <div class="input-row">
-                            <label for="chemistryLoss">Chemistry Loss Rate Constant λ_chem (s⁻¹):</label>
-                            <input type="number" id="chemistryLoss" value="1e-6" step="1e-7" min="0">
-                            <small class="input-hint">Exponential decay constant for activity loss during processing (locked)</small>
-                        </div>
-                    </div>
-
-                    <div class="control-group">
-                        <h3>Decay Chain Parameters</h3>
-                        <div class="input-row">
-                            <label for="daughterHalfLife">Daughter Half-Life T₁/₂,daughter (days):</label>
-                            <input type="number" id="daughterHalfLife" value="0.5" step="0.1" min="0.001">
-                            <small class="input-hint">Radioactive half-life of daughter isotope (locked)</small>
-                        </div>
-                        <div class="input-row">
-                            <label for="branchingRatio">Branching Ratio BR:</label>
-                            <input type="number" id="branchingRatio" value="1.0" step="0.01" min="0" max="1">
-                            <small class="input-hint">Fraction of parent decays producing daughter isotope (locked)</small>
                         </div>
                     </div>
 
                     <div class="control-group">
                         <h3>Uncertainty Parameters</h3>
                         <div class="input-row">
-                            <label for="sigmaFlux">Flux Uncertainty σ_φ (%):</label>
+                            <label for="sigmaFlux">Flux Uncertainty σ_φ (%)</label>
                             <input type="number" id="sigmaFlux" value="5" step="0.1" min="0" max="100">
-                            <small class="input-hint">Relative uncertainty in neutron flux or beam current measurement</small>
                         </div>
                         <div class="input-row">
-                            <label for="sigmaSigma">Cross-Section Uncertainty σ_σ (%):</label>
+                            <label for="sigmaSigma">Cross-Section Uncertainty σ_σ (%)</label>
                             <input type="number" id="sigmaSigma" value="3" step="0.1" min="0" max="100">
-                            <small class="input-hint">Relative uncertainty in activation cross-section</small>
                         </div>
                         <div class="input-row">
-                            <label for="sigmaGeom">Geometric Uncertainty σ_geom (%):</label>
+                            <label for="sigmaGeom">Geometry Uncertainty σ_geom (%)</label>
                             <input type="number" id="sigmaGeom" value="2" step="0.1" min="0" max="100">
-                            <small class="input-hint">Relative uncertainty in target dimensions and positioning</small>
                         </div>
                         <div class="input-row">
-                            <label for="sigmaChem">Chemistry Uncertainty σ_chem (%):</label>
+                            <label for="sigmaChem">Chemistry Uncertainty σ_chem (%)</label>
                             <input type="number" id="sigmaChem" value="1" step="0.1" min="0" max="100">
-                            <small class="input-hint">Relative uncertainty in chemical processing yield</small>
                         </div>
                     </div>
 
                     <div class="validation-controls">
                         <h3>Test Cases</h3>
-                        <button id="loadLu177Test" class="btn-validation">
-                            Load Lu-177 Test Case
-                        </button>
-                        <button id="loadMo99Test" class="btn-validation" style="margin-top: 10px;">
-                            Load Mo-99 → Tc-99m Generator Test Case
-                        </button>
+                        <button id="loadLu177Test" class="btn-validation">Load Lu-177 Test Case</button>
+                        <button id="loadMo99Test" class="btn-validation" style="margin-top: 10px;">Load Mo-99 → Tc-99m Generator Test Case</button>
                     </div>
-                </section>
+                </div>
             </details>
 
-            <!-- Additional Charts - Collapsible -->
-            <details class="collapsible-section" id="additionalCharts">
-                <summary><h2>Additional Visualizations</h2></summary>
-                
-                <section id="charts" class="charts-section">
-                    <div class="chart-grid">
-                        <div class="chart-container">
-                            <div id="chartReactionRate" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartDecayChain" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartTemperature" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartDamage" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartWaterfall" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartTransport" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartUncertainty" class="chart"></div>
-                        </div>
-                    </div>
-                </section>
+            <!-- Reference: limitations list (kept) -->
+            <details class="usa-accordion" id="limitationsAccordion">
+                <summary class="usa-accordion__button">Model Scope & Limitations</summary>
+                <div id="limitationsList" class="limitations-list"></div>
             </details>
 
-            <!-- Manufacturing Analysis Visualizer - Collapsible -->
-            <details class="collapsible-section" id="manufacturingAnalysis">
-                <summary><h2>Manufacturing Analysis</h2></summary>
-                
-                <section class="manufacturing-section">
-                    <p class="section-description"><strong>Planning-Grade Manufacturing Analysis:</strong> Engineering, operations, cost, waste, and energy analysis for radioisotope manufacturing facilities. All outputs are planning-grade estimates only and do not replace detailed engineering design or economic analysis.</p>
-                    
-                    <div class="manufacturing-controls">
-                        <div class="control-group">
-                            <h3>Facility Parameters</h3>
-                            <div class="input-row">
-                                <label for="facilityCapitalCost">Capital Cost (USD):</label>
-                                <input type="number" id="facilityCapitalCost" value="10000000" step="100000" min="0">
-                                <small class="input-hint">Order-of-magnitude facility CAPEX (shielding, hot cells, utilities). For higher fidelity use a bottoms-up estimate (civil + shielding + hot lab + QA).</small>
-                            </div>
-                            <div class="input-row">
-                                <label for="annualOperatingCost">Annual Operating Cost (USD):</label>
-                                <input type="number" id="annualOperatingCost" value="2000000" step="100000" min="0">
-                                <small class="input-hint">Staffing, consumables, QA/QC, maintenance, regulatory compliance (planning-grade). Excludes electricity (computed separately).</small>
-                            </div>
-                            <div class="input-row">
-                                <label for="electricityCost">Electricity Cost (USD/kWh):</label>
-                                <input type="number" id="electricityCost" value="0.10" step="0.01" min="0">
-                                <small class="input-hint">Use your site tariff (all-in delivered). Typical industrial range: 0.05–0.25 USD/kWh.</small>
-                            </div>
-                            <div class="input-row">
-                                <label for="sourcePower">Source Power (MW):</label>
-                                <input type="number" id="sourcePower" value="1.0" step="0.1" min="0">
-                                <small class="input-hint">Electrical power draw for the source system (not neutron yield). Use measured wall-plug power if available.</small>
-                            </div>
-                            <div class="input-row">
-                                <label for="auxiliaryPower">Auxiliary Power (MW):</label>
-                                <input type="number" id="auxiliaryPower" value="0.5" step="0.1" min="0">
-                                <small class="input-hint">Vacuum, pumps, controls, hot-cell HVAC, and plant auxiliaries (planning-grade).</small>
-                            </div>
-                            <div class="input-row">
-                                <label for="sourceUptime">Source Availability (0-1):</label>
-                                <input type="number" id="sourceUptime" value="0.85" step="0.05" min="0" max="1">
-                                <small class="input-hint">Calendar uptime (maintenance + failures). Conservative early-stage values: 0.5–0.85.</small>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="manufacturing-results">
-                        <h3>Manufacturing Analysis Results</h3>
-                        <div id="manufacturingResultsDisplay" class="manufacturing-results-display">
-                            <!-- Results will be displayed here -->
-                        </div>
-                    </div>
-                    
-                    <div class="manufacturing-charts-grid">
-                        <div class="chart-container">
-                            <div id="chartCostBreakdown" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartElectricityConsumption" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartWasteStream" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartOperationsTimeline" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartEngineeringConstraints" class="chart"></div>
-                        </div>
-                    </div>
-                </section>
-            </details>
-
-            <!-- Comparative Analytics - Collapsible -->
-            <details class="collapsible-section" id="comparativeAnalytics">
-                <summary><h2>Comparative Analytics</h2></summary>
-                
-                <section class="comparative-analytics-section">
-                    <p class="section-description">Comparative analysis of isotope production routes. These plots provide analytical comparisons and do not constitute production predictions or facility performance guarantees.</p>
-                    
-                    <div class="comparative-controls">
-                        <div class="control-group">
-                            <h3>Comparison Set 1: Therapeutic Isotopes</h3>
-                            <div class="comparison-set">
-                                <label>
-                                    <input type="checkbox" id="compareLu177" checked> Lu-177 (Lu-176(n,γ))
-                                </label>
-                                <label>
-                                    <input type="checkbox" id="compareSc47" checked> Sc-47 (Ti-47(n,p))
-                                </label>
-                                <label>
-                                    <input type="checkbox" id="compareCu67" checked> Cu-67 (Zn-67(n,p))
-                                </label>
-                            </div>
-                        </div>
-                        <div class="control-group">
-                            <h3>Comparison Set 2: Mo-99 Routes</h3>
-                            <div class="comparison-set">
-                                <label>
-                                    <input type="checkbox" id="compareMo99Reactor" checked> Mo-99 Reactor Route (Mo-98(n,γ))
-                                </label>
-                                <label>
-                                    <input type="checkbox" id="compareMo99Fast" checked> Mo-99 Fast Route (Mo-100(n,2n))
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="comparative-charts-grid">
-                        <div class="chart-container">
-                            <div id="chartComparativeActivity" class="chart"></div>
-                        </div>
-                        <div class="chart-container">
-                            <div id="chartComparativeSpecificActivity" class="chart"></div>
-                        </div>
-                    </div>
-                </section>
-            </details>
-
-            <!-- LAYER 3: HIDDEN BY DEFAULT - Reference Material -->
-            
-            <details class="collapsible-section reference-section" id="modelScope">
-                <summary><h2>Model Scope & Assumptions</h2></summary>
-                
-                <section id="explanations" class="explanations-section">
-                    <div class="explanation-block">
-                        <h3>Production Rate Calculation</h3>
-                        <p>Production rate R is calculated as R = N_parent × σ × φ × f_shield, where N_parent is the number of 
-                        target atoms, σ is the microscopic cross-section, φ is the particle flux, and f_shield is the 
-                        self-shielding factor. During irradiation, product atoms accumulate according to N(t) = (R/λ) × (1 - e^(-λt)), 
-                        where λ is the decay constant. Assumptions: constant flux, uniform target density, no spatial flux gradients.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Decay Chain Modeling</h3>
-                        <p>Daughter isotope production follows the Bateman equation for single-step parent→daughter decay: 
-                        N_d(t) = N_p × BR × (λ_p/(λ_d - λ_p)) × (e^(-λ_p t) - e^(-λ_d t)). The model assumes no daughter 
-                        production during irradiation (only parent production), and daughter activity evolves after EOB. 
-                        Limitations: only two-isotope chains are modeled; multi-step chains require separate calculations.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Engineering Constraints</h3>
-                        <p>Thermal constraints are evaluated via ΔT = P/(ṁ × C_p), where P is beam power, ṁ is coolant flow rate, 
-                        and C_p is specific heat capacity. If ΔT > ΔT_max, a derating factor f_T = ΔT_max/ΔT is applied. 
-                        Radiation damage accumulates as DPA = dpa_rate × t. If DPA > DPA_limit, derating factor f_D = t_damage/t 
-                        is applied. Assumptions: steady-state heat transfer, uniform damage distribution, no annealing.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Post-Irradiation Decay</h3>
-                        <p>Activity after end-of-bombardment (EOB) decays during processing and transport. Chemistry losses follow 
-                        A(t) = A_EOB × e^(-λ_chem × t), where λ_chem is the chemistry loss rate constant. Transport decay follows 
-                        A(t) = A_after_chem × e^(-λ × t), where λ is the radioactive decay constant. Assumptions: exponential decay 
-                        for chemistry losses, no additional losses during transport beyond radioactive decay.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Uncertainty Analysis</h3>
-                        <p>Uncertainties are propagated using root-sum-square (RSS): σ_total = √(σ_φ² + σ_σ² + σ_geom² + σ_chem²). 
-                        This assumes uncorrelated uncertainties. Uncertainty bands show ±1σ (68% confidence) and ±2σ (95% confidence) 
-                        intervals. Limitations: correlations between parameters are not included; uncertainty distributions are assumed normal.</p>
-                    </div>
-                </section>
-
-                <section id="limitations" class="limitations-section">
-                    <div id="limitationsList" class="limitations-list">
-                        <!-- Limitations will be populated by JavaScript -->
-                    </div>
-                    <div class="exclusions-section">
-                        <h3>Explicitly NOT Implemented</h3>
-                        <ul class="exclusions-list">
-                            <li><strong>CFD Solvers:</strong> Computational Fluid Dynamics solvers are not implemented. Thermal boundary conditions can be exported for external CFD solvers via the export interface.</li>
-                            <li><strong>Neutron Transport Solvers:</strong> Neutron transport solvers (e.g., MCNP, OpenMC) are not implemented. Geometry and source definitions can be exported for external transport solvers via the export interface.</li>
-                            <li><strong>Licensing Approval:</strong> This digital twin does not provide regulatory licensing approval. It is a planning tool only. Users must obtain appropriate regulatory approvals independently.</li>
-                            <li><strong>Production Guarantees:</strong> This digital twin does not guarantee production yields or facility performance. Results are planning estimates only. Users must validate production yields through experimental measurements.</li>
-                            <li><strong>Economic Optimization:</strong> Economic optimization, cost modeling, and business case analysis are not implemented. Economic analysis requires external tools or manual calculations.</li>
-                        </ul>
-                    </div>
-                </section>
-            </details>
-
-            <details class="collapsible-section reference-section" id="physicalEquations">
-                <summary><h2>Physical Equations</h2></summary>
-                
-                <section id="equations" class="equations-section">
-                    <div id="equationDisplay" class="equation-display">
-                        <p><strong>Decay Constant:</strong> $\lambda = \frac{\ln(2)}{T_{1/2}}$</p>
-                        <p><strong>Saturation Factor:</strong> $f_{sat} = 1 - e^{-\lambda t_{irr}}$</p>
-                        <p><strong>Reaction Rate:</strong> $R = N_{parent} \cdot \sigma \cdot \phi \cdot f_{shield}$</p>
-                        <p><strong>Atoms at EOB:</strong> $N_{EOB} = \frac{R \cdot f_{sat}}{\lambda}$</p>
-                        <p><strong>Activity:</strong> $A = \lambda \cdot N$</p>
-                        <p><strong>Self-Shielding:</strong> $f_{shield} = \frac{1 - e^{-\Sigma \cdot d}}{\Sigma \cdot d}$</p>
-                        <p><strong>Effective Decay Constant:</strong> $\lambda_{eff} = \lambda + k_{burn}$</p>
-                        <p><strong>Bateman Equation:</strong> $N_d(t) = N_p \cdot BR \cdot \frac{\lambda_p}{\lambda_d - \lambda_p} \left(e^{-\lambda_p t} - e^{-\lambda_d t}\right)$</p>
-                    </div>
-                </section>
-            </details>
-
-            <details class="collapsible-section reference-section" id="validation">
-                <summary><h2>Model Validation</h2></summary>
-                
-                <section class="validation-section">
-                    <div class="explanation-block">
-                        <h3>Lu-177 Production Validation</h3>
-                        <p>The model has been validated against the no-carrier-added Lu-177 production scenario via the 
-                        Lu-176(n,γ)Lu-177 reaction. Test case parameters include: parent half-life 6.647 days, cross-section 
-                        2090 barns, enrichment 0.75, and neutron flux calculated from source strength. Validation checks verify 
-                        that calculated decay constants, saturation factors, geometric efficiencies, reaction rates, and activity 
-                        values fall within expected order-of-magnitude ranges. The validation confirms unit consistency and 
-                        correct behavior of saturation, decay, and logistics loss calculations.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Mo-99 → Tc-99m Generator Validation</h3>
-                        <p>The model has been validated against the Mo-99 production and Tc-99m generator yield scenario via the 
-                        Mo-98(n,γ)Mo-99 reaction. Test case parameters include: parent half-life 2.75 days (Mo-99), daughter 
-                        half-life 0.25 days (Tc-99m), branching ratio 1.0, cross-section 0.13 barns, enrichment 0.95, and neutron 
-                        flux 1×10¹⁴ cm⁻² s⁻¹. The validation verifies correct implementation of Bateman parent→daughter decay 
-                        equations, including production during irradiation and evolution post-end-of-bombardment. Daughter activity 
-                        buildup and decay are verified to follow the expected physical behavior.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Analytical Verification</h3>
-                        <p>All formulas have been verified analytically against published physics equations. Decay constant calculations 
-                        use the standard relationship λ = ln(2)/T₁/₂. Saturation factors follow the exponential buildup formula 
-                        f_sat = 1 - e^(-λt). Reaction rates use the standard activation equation R = N × σ × φ. Bateman equations 
-                        are implemented exactly as published for single-step parent→daughter decay. Self-shielding uses the standard 
-                        thin-target approximation. All formulas are unit-consistent and dimensionally correct.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Deterministic and Unit-Consistent Modeling</h3>
-                        <p>All calculations are deterministic: identical inputs produce identical outputs. No random number generation 
-                        or stochastic processes are used. All physical quantities maintain explicit units throughout calculations. 
-                        Unit conversions are performed explicitly where necessary (e.g., days to seconds, barns to cm²). Intermediate 
-                        calculation steps preserve unit information. Final results are reported with appropriate units (Bq, GBq, etc.). 
-                        This ensures traceability and allows verification of calculation steps.</p>
-                    </div>
-                </section>
-            </details>
-
-            <details class="collapsible-section reference-section" id="regulatory">
-                <summary><h2>Regulatory Alignment</h2></summary>
-                
-                <section id="regulatory" class="regulatory-section">
-                    <h3>Regulatory Alignment (India)</h3>
-                    <div class="explanation-block">
-                        <h3>Tool Purpose and Scope</h3>
-                        <p>This digital twin is an analytical planning tool for radioisotope production calculations. It provides 
-                        deterministic physics-based calculations to support facility design, process optimization, and regulatory 
-                        compliance planning. The tool is intended for use in pre-licensing analysis and operational planning. 
-                        It is not a substitute for licensed facility operations or regulatory approval processes.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Product Quality Alignment</h3>
-                        <p><strong>Acceptance Threshold Disclaimer:</strong> Acceptance thresholds are planning-level interpretations of guidance documents, not regulatory approval criteria. Threshold sources and justifications are documented in the evaluation system.</p>
-                        <p>Acceptance criteria for radionuclidic purity and impurity fraction are aligned with AERB/RF-R/SC-1 
-                        (Radioisotope Production Purity). The model enforces a minimum radionuclidic purity of 99.9% and maximum 
-                        impurity fraction of 0.1%. These thresholds are implemented as hard acceptance criteria in the evaluation 
-                        system. The model calculates purity based on target enrichment and accounts for production cross-sections 
-                        and decay chains.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Thermal Safety Alignment</h3>
-                        <p>Thermal safety calculations are aligned with AERB/RF-R/SC-2 (Thermal Safety Limits). The model calculates 
-                        temperature rise from beam power deposition using ΔT = P/(ṁ × C_p). Thermal derating factors are applied when 
-                        calculated temperature rise exceeds design limits. The model enforces a minimum thermal derating factor of 80% 
-                        as an acceptance criterion, with warnings issued when derating falls below 90%.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Radiation Damage Alignment</h3>
-                        <p>Radiation damage limits are aligned with AERB/RF-R/SC-3 (Radiation Damage Limits). The model tracks 
-                        displacement damage accumulation (DPA) over irradiation time. Damage derating factors are calculated based on 
-                        accumulated DPA relative to design limits. The model enforces a minimum damage derating factor of 80% as an 
-                        acceptance criterion, with warnings issued when derating falls below 90%.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Handling and Transport Alignment</h3>
-                        <p>Activity delivery requirements are aligned with AERB/RF-R/SC-4 (Activity Delivery Requirements). The model 
-                        accounts for activity loss during post-irradiation processing and transport delays. Chemistry losses during 
-                        processing are modeled as exponential decay. Transport decay follows standard radioactive decay laws. The model 
-                        enforces a minimum delivery fraction of 70% (delivered activity relative to end-of-bombardment activity) as an 
-                        acceptance criterion.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Uncertainty Analysis Alignment</h3>
-                        <p>Uncertainty quantification methods are aligned with AERB/RF-R/SC-5 (Uncertainty Quantification). The model 
-                        propagates uncertainties using root-sum-square (RSS) methods for uncorrelated parameters. Uncertainty sources 
-                        include flux measurement, cross-section data, geometric parameters, and chemistry yields. The model enforces a 
-                        maximum total uncertainty of 30% as an acceptance criterion, with warnings issued when uncertainty exceeds 25%.</p>
-                    </div>
-                    <div class="explanation-block" style="border-left-color: #dc3545;">
-                        <h3>Facility Licensing Disclaimer</h3>
-                        <p><strong>This digital twin is not a licensed facility.</strong> This tool provides analytical calculations only. 
-                        It does not constitute regulatory approval, facility licensing, or authorization to produce radioisotopes. 
-                        Actual facility operations require appropriate licenses from the Atomic Energy Regulatory Board (AERB) under 
-                        applicable regulations. Users must obtain all necessary regulatory approvals before undertaking any radioisotope 
-                        production activities. This tool is intended solely for planning and design purposes.</p>
-                    </div>
-                </section>
-
-                <section id="iaea-alignment" class="iaea-alignment-section">
-                    <h3>International Safety Alignment (IAEA)</h3>
-                    <div class="explanation-block">
-                        <h3>IAEA Safety Philosophy Alignment</h3>
-                        <p>This model aligns with International Atomic Energy Agency (IAEA) safety philosophy and guidance documents. 
-                        The calculation methods and acceptance criteria reflect principles established in IAEA safety standards, technical 
-                        reports, and safety guides. The model implements deterministic safety analysis methods consistent with IAEA 
-                        recommendations for radioisotope production facilities. All calculations maintain explicit traceability to 
-                        published IAEA guidance.</p>
-                    </div>
-                    <div class="explanation-block">
-                        <h3>Safety Aspects Covered</h3>
-                        <ul class="safety-aspects-list">
-                            <li><strong>Radionuclidic Purity:</strong> Acceptance criteria align with IAEA SRS-63 (Quality assurance 
-                            for radionuclidic purity) and IAEA TRS-469 (Production and quality control of medical radioisotopes). 
-                            The model enforces minimum purity thresholds and tracks impurity fractions throughout production.</li>
-                            <li><strong>Thermal Safety:</strong> Thermal-hydraulic calculations align with IAEA NP-T-5.1 (Thermal-hydraulic 
-                            safety principles) and IAEA SSG-30 (Safety of research reactors). Temperature rise calculations use 
-                            standard heat transfer relationships with explicit safety margins.</li>
-                            <li><strong>Radiation Damage:</strong> Damage accumulation modeling aligns with IAEA TRS-429 (Radiation damage 
-                            to reactor materials) and IAEA NP-T-3.13 (Materials for nuclear power plants). Displacement damage 
-                            tracking follows established DPA calculation methods.</li>
-                            <li><strong>Operational Delays:</strong> Post-irradiation handling and transport calculations align with 
-                            IAEA TRS-469 (Production and quality control of medical radioisotopes) and IAEA SSG-46 (Radiation protection 
-                            in radioisotope production). Activity loss during processing and transport is explicitly modeled.</li>
-                            <li><strong>Uncertainty Analysis:</strong> Uncertainty propagation methods align with IAEA TRS-457 (Uncertainty 
-                            analysis in reactor physics calculations) and IAEA TECDOC-1901 (Uncertainty quantification in nuclear data). 
-                            Root-sum-square methods are used for uncorrelated parameter uncertainties.</li>
-                        </ul>
-                    </div>
-                    <div class="explanation-block" style="border-left-color: #dc3545;">
-                        <h3>Certification and Licensing Disclaimer</h3>
-                        <p><strong>This model does not constitute IAEA certification or licensing.</strong> Alignment with IAEA guidance 
-                        does not imply approval, certification, or endorsement by the International Atomic Energy Agency. This tool is 
-                        an analytical planning instrument only. Actual facility licensing and certification must be obtained through 
-                        appropriate national regulatory authorities in accordance with applicable national regulations and international 
-                        obligations. Users are responsible for ensuring compliance with all applicable national and international 
-                        requirements.</p>
-                    </div>
-                </section>
+            <!-- Diagnostics (kept for sanity tests) -->
+            <details class="usa-accordion" id="diagnosticsAccordion">
+                <summary class="usa-accordion__button">Diagnostics</summary>
+                <button id="coreTestBtn" class="btn-validation">Run Core Sanity Test</button>
+                <pre id="coreTestOut"></pre>
             </details>
         </main>
 
-        <!-- FOOTER: Simplified -->
-        <footer>
-            <p><strong>Model version:</strong> 2.2.1 | <strong>Release Notes:</strong> Canonical isotope pathways introduced. Physics locked. Comparative-only analysis supported.</p>
-            <p><strong>Planning-grade tool:</strong> Results are order-of-magnitude estimates only. No production guarantees or licensing approval.</p>
-            <p>&copy; 2024 Generic Radioisotope Production Digital Twin</p>
+        <!-- FOOTER — MODEL SCOPE -->
+        <footer class="usa-footer usa-footer--slim">
+            <p>
+                Planning-grade tool only. No neutron transport, CFD, licensing,
+                production guarantees, or economic optimization.
+            </p>
         </footer>
     </div>
-
-    <button id="coreTestBtn">Run Core Sanity Test</button>
-    <pre id="coreTestOut"></pre>
 
 </body>
 </html>

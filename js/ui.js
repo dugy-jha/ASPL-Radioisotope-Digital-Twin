@@ -18,6 +18,7 @@ const UI = {
      * Initialize UI components and event listeners
      */
     init: function() {
+        // UI-ONLY CHANGE — NO PHYSICS MODIFICATION
         this.addPlanningWarningBanner();
         this.addPhysicsLockBanner();
         this.disablePhysicsInputs();
@@ -28,6 +29,7 @@ const UI = {
         this.initializeRouteRegistry();
         this.initRouteExplorer();
         this.initLimitations();
+        this.initRouteSelector();
     },
 
     /**
@@ -52,6 +54,12 @@ const UI = {
      * Add physics lock banner to UI
      */
     addPhysicsLockBanner: function() {
+        // UI-ONLY CHANGE — NO PHYSICS MODIFICATION
+        // New layout includes physics lock text in the top banner; avoid duplicating.
+        if (document.getElementById('planningWarningBanner')) {
+            return;
+        }
+
         const main = document.querySelector('main');
         if (!main) return;
         
@@ -72,6 +80,100 @@ const UI = {
         } else {
             main.insertBefore(banner, main.firstChild);
         }
+    },
+
+    /**
+     * Initialize Route Selector (Step 1)
+     * UI-ONLY CHANGE — NO PHYSICS MODIFICATION
+     */
+    initRouteSelector: function() {
+        const selector = document.getElementById('routeSelector');
+        if (!selector) return;
+
+        // Populate from ISOTOPE_PATHWAYS when available; otherwise fall back to ISOTOPE_ROUTES.
+        let options = [];
+
+        if (typeof window !== 'undefined' && window.ISOTOPE_PATHWAYS && Array.isArray(window.ISOTOPE_PATHWAYS)) {
+            options = window.ISOTOPE_PATHWAYS
+                .filter(p => p && p.id && p.primary_product)
+                .map(p => ({
+                    value: p.id,
+                    label: `${p.primary_product} — ${p.id}`
+                }));
+        } else if (typeof ISOTOPE_ROUTES !== 'undefined' && Array.isArray(ISOTOPE_ROUTES)) {
+            options = ISOTOPE_ROUTES
+                .filter(r => r && r.id && r.product_isotope)
+                .map(r => ({
+                    value: r.id,
+                    label: `${r.product_isotope} — ${r.target_isotope}(${r.reaction})`
+                }));
+        }
+
+        // De-duplicate and sort
+        const seen = new Set();
+        const unique = [];
+        options.forEach(o => {
+            if (!seen.has(o.value)) {
+                seen.add(o.value);
+                unique.push(o);
+            }
+        });
+        unique.sort((a, b) => a.label.localeCompare(b.label));
+
+        selector.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Select a pathway…';
+        selector.appendChild(placeholder);
+
+        unique.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.value;
+            opt.textContent = o.label;
+            selector.appendChild(opt);
+        });
+
+        selector.addEventListener('change', () => {
+            this.updateRouteWarningsFromSelector();
+        });
+    },
+
+    /**
+     * Update route warnings panel based on selected pathway.
+     * UI-ONLY CHANGE — NO PHYSICS MODIFICATION
+     */
+    updateRouteWarningsFromSelector: function() {
+        const selector = document.getElementById('routeSelector');
+        const warningsEl = document.getElementById('routeWarnings');
+        if (!selector || !warningsEl) return;
+
+        const selectedId = selector.value;
+        if (!selectedId) {
+            warningsEl.innerHTML = '';
+            return;
+        }
+
+        let warnings = [];
+        if (typeof window !== 'undefined' && window.ISOTOPE_PATHWAYS && Array.isArray(window.ISOTOPE_PATHWAYS)) {
+            const p = window.ISOTOPE_PATHWAYS.find(x => x.id === selectedId);
+            if (p && Array.isArray(p.warnings)) {
+                warnings = p.warnings;
+            }
+        }
+
+        if (!warnings || warnings.length === 0) {
+            warningsEl.innerHTML = '<p class="usa-hint">No pathway-specific warnings reported by the registry.</p>';
+            return;
+        }
+
+        warningsEl.innerHTML = `
+            <div class="acceptance-warnings">
+                <h4>Pathway Warnings (Registry)</h4>
+                <ul>
+                    ${warnings.map(w => `<li>${w}</li>`).join('')}
+                </ul>
+            </div>
+        `;
     },
 
     /**
@@ -1119,6 +1221,30 @@ const UI = {
                     ${warningsHTML}
                 </div>
             `;
+        }
+
+        // UI-ONLY CHANGE — NO PHYSICS MODIFICATION
+        // Mirror key outputs into the USWDS-style Results Panel boxes (if present)
+        const activityEOBEl = document.getElementById('activityEOB');
+        if (activityEOBEl) {
+            activityEOBEl.textContent = formatNumber(A_EOB);
+        }
+
+        const activityDeliveredEl = document.getElementById('activityDelivered');
+        if (activityDeliveredEl && results && typeof results.delivered_activity === 'number') {
+            activityDeliveredEl.textContent = formatNumber(results.delivered_activity);
+        }
+
+        const feasibilityBadgeEl = document.getElementById('feasibilityBadge');
+        if (feasibilityBadgeEl) {
+            // Derive from existing acceptance evaluation only (no new logic)
+            if (acceptance.pass && acceptance.warnings.length === 0) {
+                feasibilityBadgeEl.innerHTML = '<span class="acceptance-status pass"><span class="status-icon">✔</span> PASS</span>';
+            } else if (acceptance.pass && acceptance.warnings.length > 0) {
+                feasibilityBadgeEl.innerHTML = '<span class="acceptance-status warn"><span class="status-icon">⚠</span> PASS (with warnings)</span>';
+            } else {
+                feasibilityBadgeEl.innerHTML = '<span class="acceptance-status fail"><span class="status-icon">✖</span> FAIL</span>';
+            }
         }
     },
 
