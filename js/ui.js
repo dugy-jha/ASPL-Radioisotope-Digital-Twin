@@ -2300,6 +2300,183 @@ const UI = {
     },
 
     /**
+     * Update Manufacturing Analysis
+     */
+    updateManufacturingAnalysis: function() {
+        if (typeof ManufacturingAnalysis === 'undefined') return;
+        
+        // Get manufacturing parameters from UI
+        const beamPower_MW = this.getParam('sourcePower', 1.0);
+        const coolantFlow_kg_s = this.getParam('coolantFlow', 0.1);
+        const heatCapacity_J_kgK = this.getParam('heatCapacity', 4184);
+        const maxDeltaT_K = this.getParam('deltaTMax', 50);
+        const dpaRate_dpa_s = this.getParam('dpaRate', 1e-8);
+        const irradiationTime_days = this.getParam('irradiationTime', 7);
+        const maxDPA = this.getParam('dpaLimit', 10);
+        const processingTime_hours = this.getParam('chemistryDelay', 24);
+        const transportTime_hours = this.getParam('transportTime', 48);
+        const sourceUptime = this.getParam('sourceUptime', 0.85);
+        
+        // Manufacturing-specific parameters
+        const facilityCapitalCost_USD = this.getParam('facilityCapitalCost', 10e6);
+        const annualOperatingCost_USD = this.getParam('annualOperatingCost', 2e6);
+        const electricityCost_USD_kWh = this.getParam('electricityCost', 0.10);
+        const sourcePower_MW_manufacturing = this.getParam('sourcePower', 1.0);
+        const auxiliaryPower_MW = this.getParam('auxiliaryPower', 0.5);
+        const dutyCycle = this.getParam('dutyCycle', 1.0);
+        
+        // Estimate annual production (planning-grade)
+        // Get activity from results if available, otherwise use estimate
+        const resultsDisplay = document.getElementById('resultsDisplay');
+        let activity_EOB_GBq = 100; // Default estimate
+        if (resultsDisplay && resultsDisplay.textContent) {
+            const activityMatch = resultsDisplay.textContent.match(/Activity at EOB.*?(\d+\.?\d*)\s*(GBq|TBq)/i);
+            if (activityMatch) {
+                activity_EOB_GBq = parseFloat(activityMatch[1]);
+                if (activityMatch[2] === 'TBq') {
+                    activity_EOB_GBq *= 1000;
+                }
+            }
+        }
+        
+        const batchesPerYear = (365 * sourceUptime) / (irradiationTime_days + processingTime_hours/24 + transportTime_hours/24 + 1);
+        const annualProduction_GBq = activity_EOB_GBq * batchesPerYear;
+        
+        // Run comprehensive analysis
+        const analysis = ManufacturingAnalysis.comprehensiveAnalysis({
+            beamPower_MW,
+            coolantFlow_kg_s,
+            heatCapacity_J_kgK,
+            maxDeltaT_K,
+            dpaRate_dpa_s,
+            irradiationTime_days,
+            maxDPA,
+            processingTime_hours,
+            transportTime_hours,
+            sourceUptime,
+            maintenanceWindow_days: 1,
+            targetsPerBatch: 1,
+            capitalCost_USD: facilityCapitalCost_USD,
+            annualOperatingCost_USD,
+            electricityCost_USD_kWh,
+            sourcePower_MW: sourcePower_MW_manufacturing,
+            auxiliaryPower_MW,
+            annualOperatingHours: 365 * 24 * sourceUptime,
+            annualProduction_GBq,
+            amortizationYears: 20,
+            targetMass_kg: 0.1,
+            batchesPerYear,
+            chemistryWasteFraction: 0.1,
+            targetHalfLife_days: this.getParam('halfLife', 6.65),
+            storageTime_years: 10,
+            coolingPower_MW: 0.2,
+            dutyCycle
+        });
+        
+        // Display results
+        this.displayManufacturingResults(analysis);
+        
+        // Update charts
+        if (typeof ManufacturingCharts !== 'undefined') {
+            const costContainer = document.getElementById('chartCostBreakdown');
+            const electricityContainer = document.getElementById('chartElectricityConsumption');
+            const wasteContainer = document.getElementById('chartWasteStream');
+            const operationsContainer = document.getElementById('chartOperationsTimeline');
+            const engineeringContainer = document.getElementById('chartEngineeringConstraints');
+            
+            if (costContainer) {
+                ManufacturingCharts.costBreakdownChart('chartCostBreakdown', analysis.cost);
+            }
+            if (electricityContainer) {
+                ManufacturingCharts.electricityConsumptionChart('chartElectricityConsumption', analysis.electricity);
+            }
+            if (wasteContainer) {
+                ManufacturingCharts.wasteStreamChart('chartWasteStream', analysis.waste);
+            }
+            if (operationsContainer) {
+                ManufacturingCharts.operationsTimelineChart('chartOperationsTimeline', analysis.operations);
+            }
+            if (engineeringContainer) {
+                ManufacturingCharts.engineeringConstraintsChart('chartEngineeringConstraints', analysis.engineering);
+            }
+        }
+    },
+
+    /**
+     * Display Manufacturing Analysis Results
+     */
+    displayManufacturingResults: function(analysis) {
+        const display = document.getElementById('manufacturingResultsDisplay');
+        if (!display) return;
+        
+        const formatCurrency = (value) => {
+            if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+            if (value >= 1e3) return `$${(value / 1e3).toFixed(2)}K`;
+            return `$${value.toFixed(2)}`;
+        };
+        
+        const formatNumber = (value, decimals = 2) => {
+            return value.toFixed(decimals);
+        };
+        
+        let html = '<div class="manufacturing-summary">';
+        
+        // Summary
+        html += '<div class="manufacturing-summary-section">';
+        html += '<h4>Summary</h4>';
+        html += `<p><strong>Feasibility:</strong> ${analysis.summary.feasibility.overall ? '✓ Feasible' : '⚠ Constraints Exceeded'}</p>`;
+        html += `<p><strong>Annual Production:</strong> ${formatNumber(analysis.summary.keyMetrics.annualProduction_GBq)} GBq</p>`;
+        html += `<p><strong>Cost per GBq:</strong> ${formatCurrency(analysis.summary.keyMetrics.costPerGBq_USD)}</p>`;
+        html += `<p><strong>Annual Electricity:</strong> ${formatNumber(analysis.summary.keyMetrics.annualElectricity_MWh)} MWh</p>`;
+        html += `<p><strong>Annual Waste:</strong> ${formatNumber(analysis.summary.keyMetrics.annualWaste_kg, 3)} kg</p>`;
+        html += '</div>';
+        
+        // Engineering
+        html += '<div class="manufacturing-summary-section">';
+        html += '<h4>Engineering Constraints</h4>';
+        html += `<p><strong>Thermal:</strong> ΔT = ${formatNumber(analysis.engineering.thermal.deltaT_K)} K (limit: ${formatNumber(analysis.engineering.thermal.maxDeltaT_K)} K) - ${analysis.engineering.thermal.status === 'within_limit' ? '✓' : '⚠'}</p>`;
+        html += `<p><strong>Damage:</strong> DPA = ${formatNumber(analysis.engineering.damage.totalDPA, 4)} (limit: ${formatNumber(analysis.engineering.damage.maxDPA)}) - ${analysis.engineering.damage.status === 'within_limit' ? '✓' : '⚠'}</p>`;
+        html += '</div>';
+        
+        // Operations
+        html += '<div class="manufacturing-summary-section">';
+        html += '<h4>Operations</h4>';
+        html += `<p><strong>Cycle Time:</strong> ${formatNumber(analysis.operations.cycleTime.total_days)} days</p>`;
+        html += `<p><strong>Batches per Year:</strong> ${formatNumber(analysis.operations.throughput.batchesPerYear)}</p>`;
+        html += `<p><strong>Effective Uptime:</strong> ${(analysis.operations.throughput.effectiveUptime * 100).toFixed(1)}%</p>`;
+        html += '</div>';
+        
+        // Cost
+        html += '<div class="manufacturing-summary-section">';
+        html += '<h4>Cost Analysis</h4>';
+        html += `<p><strong>Total Annual Cost:</strong> ${formatCurrency(analysis.cost.summary.totalAnnualCost_USD)}</p>`;
+        html += `<p><strong>Capital (amortized):</strong> ${formatCurrency(analysis.cost.capital.annualAmortized_USD)}/year</p>`;
+        html += `<p><strong>Operating:</strong> ${formatCurrency(analysis.cost.operating.base_USD)}/year</p>`;
+        html += `<p><strong>Electricity:</strong> ${formatCurrency(analysis.cost.electricity.cost_USD)}/year</p>`;
+        html += '</div>';
+        
+        // Waste
+        html += '<div class="manufacturing-summary-section">';
+        html += '<h4>Waste Stream</h4>';
+        html += `<p><strong>Annual Waste Mass:</strong> ${formatNumber(analysis.waste.wasteGeneration.annualMass_kg, 3)} kg</p>`;
+        html += `<p><strong>Activity After Storage:</strong> ${formatNumber(analysis.waste.radioactivity.activityAfterStorage_GBq)} GBq</p>`;
+        html += `<p><strong>Annual Disposal Cost:</strong> ${formatCurrency(analysis.waste.disposal.annualDisposalCost_USD)}</p>`;
+        html += '</div>';
+        
+        // Electricity
+        html += '<div class="manufacturing-summary-section">';
+        html += '<h4>Electricity Consumption</h4>';
+        html += `<p><strong>Total Average Power:</strong> ${formatNumber(analysis.electricity.power.totalAverage_MW)} MW</p>`;
+        html += `<p><strong>Annual Consumption:</strong> ${formatNumber(analysis.electricity.consumption.annual_MWh)} MWh</p>`;
+        html += `<p><strong>Annual CO₂:</strong> ${formatNumber(analysis.electricity.environmental.annualCO2_kg / 1000, 2)} metric tons</p>`;
+        html += '</div>';
+        
+        html += '</div>';
+        
+        display.innerHTML = html;
+    },
+
+    /**
      * Toggle score breakdown table visibility
      */
     toggleScoreBreakdown: function(cardId) {
