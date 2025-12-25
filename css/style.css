@@ -35,12 +35,50 @@ body {
    ============================================================================ */
 
 :root {
-    --uswds-primary: #005ea2;
-    --uswds-warning: #fdb81e;
+    --aspl-navy: #1F3465;
+    --aspl-blue: #1577BA;
+    --aspl-deep-blue: #0F6293;
+    --aspl-teal: #3BBFBF;
+    --aspl-orange: #F6881F;
+    --aspl-gold: #F7BB3D;
+    
+    --uswds-primary: var(--aspl-navy);
+    --uswds-secondary: var(--aspl-teal);
+    --uswds-warning: var(--aspl-gold);
     --uswds-error: #d54309;
     --uswds-neutral: #565c65;
     --uswds-surface: #ffffff;
-    --uswds-surface-alt: #f0f8ff;
+    --uswds-surface-alt: #f1f6fa;
+}
+
+.usa-button--primary {
+    background-color: var(--aspl-teal) !important;
+    color: white !important;
+    border: none;
+}
+
+.usa-button--primary:hover {
+    background-color: #34a8a8 !important;
+}
+
+.usa-button--outline {
+    background-color: transparent !important;
+    color: var(--aspl-navy) !important;
+    border: 2px solid var(--aspl-navy) !important;
+}
+
+.usa-button--outline:hover {
+    background-color: rgba(31, 52, 101, 0.05) !important;
+}
+
+/* Specific button style for NECTAR */
+#loadASPLNectar {
+    background-color: var(--aspl-orange) !important;
+    color: white !important;
+}
+
+#loadASPLNectar:hover {
+    background-color: #e57d1c !important;
 }
 
 .usa-hint {
@@ -72,17 +110,35 @@ body {
     border: 1px solid #dfe1e2;
     border-radius: 8px;
     background: var(--uswds-surface);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.usa-card.core-step h2 {
+    color: var(--aspl-navy);
+    border-bottom: 3px solid var(--aspl-teal);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
 }
 
 .results-panel {
-    border: 2px solid var(--uswds-primary);
+    border: 3px solid var(--aspl-teal);
+    background-color: #f8fcfe;
 }
 
 .result-box {
-    background: var(--uswds-surface-alt);
-    padding: 1rem;
-    border-radius: 4px;
+    background: white;
+    padding: 1.25rem;
+    border-radius: 8px;
     border: 1px solid #dfe1e2;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.result-box h3 {
+    color: var(--aspl-navy);
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 2px solid var(--aspl-teal);
+    display: inline-block;
 }
 
 .usa-label {
@@ -120,10 +176,15 @@ body {
     cursor: pointer;
     padding: 1rem 1.25rem;
     font-weight: 600;
-    color: #1b1b1b;
-    background: #f8f9fa;
+    color: var(--aspl-navy);
+    background: #f1f6fa;
     border-radius: 8px;
     user-select: none;
+    border-bottom: 1px solid #dfe1e2;
+}
+
+.usa-accordion__button:hover {
+    background: #e1edf7;
 }
 
 .usa-footer--slim {
@@ -140,17 +201,27 @@ body {
 .action-bar {
   margin-top: 2rem;
   margin-bottom: 2rem;
-  border-left: 6px solid var(--uswds-primary);
+  border-left: 6px solid var(--aspl-teal);
   padding-left: 1rem;
+  background-color: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 0 8px 8px 0;
 }
 
 #calculateBtn {
   width: 100%;
   font-size: 1.1rem;
+  background-color: var(--aspl-teal) !important;
+}
+
+#calculateBtn:hover {
+    background-color: #34a8a8 !important;
 }
 
 #resetBtn {
   width: 100%;
+  color: var(--aspl-navy) !important;
+  border-color: var(--aspl-navy) !important;
 }
 
 /* ============================================================================
@@ -158,26 +229,41 @@ body {
    ============================================================================ */
 
 header {
-    text-align: center;
-    padding: 30px 20px;
-    border-bottom: 3px solid #34495e;
+    text-align: left;
+    padding: 20px 40px;
+    border-bottom: 4px solid var(--aspl-teal);
     margin-bottom: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #102845 0%, #1F3465 100%);
     color: white;
     border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+
+.header-logo {
+    height: 80px;
+    width: auto;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+.header-content {
+    flex: 1;
 }
 
 header h1 {
-    font-size: 2.5em;
+    font-size: 2.2em;
     font-weight: 700;
-    margin-bottom: 10px;
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    margin-bottom: 5px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    text-align: left;
 }
 
 .subtitle {
     font-size: 1.1em;
     opacity: 0.95;
     font-weight: 300;
+    text-align: left;
 }
 
 .overview {
