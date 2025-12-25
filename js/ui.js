@@ -90,23 +90,29 @@ const UI = {
         const selector = document.getElementById('routeSelector');
         if (!selector) return;
 
+        // UI-ONLY CHANGE — NO PHYSICS MODIFICATION
         // Populate from ISOTOPE_PATHWAYS when available; otherwise fall back to ISOTOPE_ROUTES.
         let options = [];
-
-        if (typeof window !== 'undefined' && window.ISOTOPE_PATHWAYS && Array.isArray(window.ISOTOPE_PATHWAYS)) {
-            options = window.ISOTOPE_PATHWAYS
-                .filter(p => p && p.id && p.primary_product)
-                .map(p => ({
-                    value: p.id,
-                    label: `${p.primary_product} — ${p.id}`
-                }));
-        } else if (typeof ISOTOPE_ROUTES !== 'undefined' && Array.isArray(ISOTOPE_ROUTES)) {
-            options = ISOTOPE_ROUTES
-                .filter(r => r && r.id && r.product_isotope)
-                .map(r => ({
-                    value: r.id,
-                    label: `${r.product_isotope} — ${r.target_isotope}(${r.reaction})`
-                }));
+        try {
+            if (typeof window !== 'undefined' && window.ISOTOPE_PATHWAYS && Array.isArray(window.ISOTOPE_PATHWAYS)) {
+                options = window.ISOTOPE_PATHWAYS
+                    .filter(p => p && p.id && p.primary_product)
+                    .map(p => ({
+                        value: p.id,
+                        label: `${p.primary_product} — ${p.id}`
+                    }));
+            } else if (typeof ISOTOPE_ROUTES !== 'undefined' && Array.isArray(ISOTOPE_ROUTES)) {
+                options = ISOTOPE_ROUTES
+                    .filter(r => r && r.id && r.product_isotope)
+                    .map(r => ({
+                        value: r.id,
+                        label: `${r.product_isotope} — ${r.target_isotope}(${r.reaction})`
+                    }));
+            }
+        } catch (e) {
+            if (typeof console !== 'undefined' && console.error) {
+                console.error('[UI] routeSelector population failed:', e);
+            }
         }
 
         // De-duplicate and sort
@@ -126,12 +132,28 @@ const UI = {
         placeholder.textContent = 'Select a pathway…';
         selector.appendChild(placeholder);
 
-        unique.forEach(o => {
+        if (unique.length === 0) {
+            // If nothing loaded, show a clear UI hint (no physics impact).
             const opt = document.createElement('option');
-            opt.value = o.value;
-            opt.textContent = o.label;
+            opt.value = '';
+            opt.textContent = 'No pathways loaded (check console for errors)';
             selector.appendChild(opt);
-        });
+            selector.disabled = true;
+
+            const warningsEl = document.getElementById('routeWarnings');
+            if (warningsEl) {
+                const hasPathways = (typeof window !== 'undefined' && window.ISOTOPE_PATHWAYS);
+                warningsEl.innerHTML = `<p class="usa-hint"><strong>Route selector unavailable:</strong> No pathway data was loaded into the browser. (ISOTOPE_PATHWAYS present: ${hasPathways ? 'yes' : 'no'}).</p>`;
+            }
+        } else {
+            selector.disabled = false;
+            unique.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.value;
+                opt.textContent = o.label;
+                selector.appendChild(opt);
+            });
+        }
 
         selector.addEventListener('change', () => {
             this.updateRouteWarningsFromSelector();
