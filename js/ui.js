@@ -263,6 +263,7 @@ const UI = {
         this.updateRouteRegistry();
         this.populateRouteExplorer();
         this.updateComparativeCharts();
+        this.updateManufacturingAnalysis();
     },
 
     /**

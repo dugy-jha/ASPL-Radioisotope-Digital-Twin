@@ -216,6 +216,17 @@ const ModelLimitations = {
             affects: ['gdt_sources'],
             status: 'Known – Planning-Grade',
             estimated_impact_magnitude: 'Source yield accuracy depends on engineering parameter estimates. Plasma physics and transport effects not modeled.'
+        },
+        {
+            id: 'manufacturing_analysis',
+            title: 'Manufacturing Analysis Scope',
+            description: 'Manufacturing analysis (engineering, operations, cost, waste, electricity) is planning-grade only. All cost estimates, facility requirements, waste classifications, and energy consumption calculations are engineering-level approximations. Does NOT replace detailed engineering design, economic analysis, or regulatory waste classification.',
+            severity: 'moderate',
+            impact: 'Cost estimates, facility sizing, waste management, and energy consumption are planning-grade approximations. Actual values may vary significantly based on site-specific conditions, regulatory requirements, and detailed engineering design.',
+            category: 'manufacturing',
+            affects: ['cost_analysis', 'waste_management', 'facility_design'],
+            status: 'Known – Planning-Grade',
+            estimated_impact_magnitude: 'Cost estimates may vary by ±50-100%. Waste classifications are approximations. Facility requirements are order-of-magnitude estimates only.'
         }
     ]
 };
