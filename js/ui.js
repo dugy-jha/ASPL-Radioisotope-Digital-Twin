@@ -14,6 +14,7 @@ const UI = {
      * Initialize UI components and event listeners
      */
     init: function() {
+        this.addPlanningWarningBanner();
         this.addPhysicsLockBanner();
         this.disablePhysicsInputs();
         this.setupEventListeners();
@@ -33,26 +34,39 @@ const UI = {
     },
 
     /**
+     * Add planning-grade warning banner on page load
+     */
+    addPlanningWarningBanner: function() {
+        // Banner is already in HTML, just ensure it's visible
+        const banner = document.getElementById('planningWarningBanner');
+        if (banner && typeof console !== 'undefined' && console.warn) {
+            console.warn('This tool is intended for feasibility screening and comparative analysis only. Results are order-of-magnitude estimates. It does not provide production guarantees or licensing approval.');
+        }
+    },
+
+    /**
      * Add physics lock banner to UI
      */
     addPhysicsLockBanner: function() {
-        const container = document.querySelector('.container');
-        if (!container) return;
+        const main = document.querySelector('main');
+        if (!main) return;
         
         // Check if banner already exists
         if (document.getElementById('physicsLockBanner')) return;
         
         const banner = document.createElement('div');
         banner.id = 'physicsLockBanner';
-        banner.style.cssText = 'background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 4px; padding: 12px 16px; margin: 16px 0; color: #856404; font-weight: 500;';
-        banner.innerHTML = '<strong>⚠️ Physics Lock:</strong> Physics pathways are locked. Only source, moderator, and target geometry may be changed.';
+        banner.style.cssText = 'background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 6px; padding: 14px 18px; margin: 20px 0; color: #856404; font-weight: 600; font-size: 1.05em; text-align: center; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);';
+        banner.innerHTML = '<strong>🔒 Physics Locked:</strong> Nuclear pathways and physics models are fixed. Only source, moderation, and target geometry may be changed.';
         
-        // Insert after header or at top of container
-        const header = document.querySelector('header');
-        if (header && header.nextSibling) {
-            container.insertBefore(banner, header.nextSibling);
+        // Insert after planning warning banner or at start of main
+        const planningBanner = document.getElementById('planningWarningBanner');
+        if (planningBanner && planningBanner.nextSibling) {
+            main.insertBefore(banner, planningBanner.nextSibling);
+        } else if (planningBanner) {
+            planningBanner.insertAdjacentElement('afterend', banner);
         } else {
-            container.insertBefore(banner, container.firstChild);
+            main.insertBefore(banner, main.firstChild);
         }
     },
 
