@@ -53,6 +53,53 @@
                 <strong>⚠️ Planning-Grade Tool:</strong> This tool is intended for feasibility screening and comparative analysis only. Results are order-of-magnitude estimates. It does not provide production guarantees or licensing approval.
             </div>
 
+            <!-- Walkthrough: High-fidelity setup (guidance only; no physics changes) -->
+            <details class="collapsible-section reference-section" id="walkthroughHighFidelity">
+                <summary><h2>Walkthrough: Higher-Fidelity Input Setup (Guidance)</h2></summary>
+                <section class="walkthrough-section">
+                    <p class="section-description"><strong>Purpose:</strong> This checklist helps you supply higher-quality <em>inputs</em> (measured/validated where possible). It does <strong>not</strong> change the model’s underlying assumptions or physics scope.</p>
+                    <div class="walkthrough-grid">
+                        <div class="walkthrough-card">
+                            <h3>Step 1 — Pick a pathway (physics locked)</h3>
+                            <p>Use the <strong>Isotope Route Explorer</strong> to select a pathway. Cross-sections, decay chains, chemistry defaults, and warnings come from the canonical registry and are <strong>not editable</strong>.</p>
+                        </div>
+                        <div class="walkthrough-card">
+                            <h3>Step 2 — Supply a defensible flux / source term</h3>
+                            <ul class="walkthrough-list">
+                                <li><strong>Best</strong>: Flux at target from transport (MCNP/OpenMC/Serpent) for your geometry and spectrum.</li>
+                                <li><strong>Good</strong>: Flux inferred from activation foils / dosimetry near the target plane.</li>
+                                <li><strong>Planning</strong>: Use design estimates; expect ≥2× uncertainty in close-in geometries.</li>
+                            </ul>
+                        </div>
+                        <div class="walkthrough-card">
+                            <h3>Step 3 — Geometry and target definition</h3>
+                            <ul class="walkthrough-list">
+                                <li><strong>Measure</strong> target radius/thickness and source distance at the same reference points used in the physical setup.</li>
+                                <li><strong>Provide</strong> realistic target atom density (advanced panel) derived from density, composition, and enrichment.</li>
+                            </ul>
+                        </div>
+                        <div class="walkthrough-card">
+                            <h3>Step 4 — Operations realism</h3>
+                            <ul class="walkthrough-list">
+                                <li>Use realistic irradiation time and duty cycle (include planned shutdowns).</li>
+                                <li>Use realistic chemistry + transport times for your logistics chain.</li>
+                            </ul>
+                        </div>
+                        <div class="walkthrough-card">
+                            <h3>Step 5 — Engineering constraints and manufacturing</h3>
+                            <ul class="walkthrough-list">
+                                <li>Set cooling and damage parameters to reflect actual limits (not optimistic design targets).</li>
+                                <li>Use manufacturing inputs for <strong>comparative</strong> cost/energy/waste screening only (±50–100% typical uncertainty).</li>
+                            </ul>
+                        </div>
+                        <div class="walkthrough-card">
+                            <h3>Step 6 — Interpret results safely</h3>
+                            <p>Use outputs for <strong>ranking and feasibility screening</strong>. Do not use for guarantees, licensing basis, or economic commitments.</p>
+                        </div>
+                    </div>
+                </section>
+            </details>
+
             <!-- Core Inputs Section -->
             <section id="coreInputs" class="core-inputs-section">
                 <h2>Core Parameters</h2>
@@ -65,6 +112,7 @@
                             <option value="industrial">Industrial (viable ≥ 0.1 GBq)</option>
                             <option value="research">Research (viable ≥ 0.01 GBq)</option>
                         </select>
+                        <small class="input-hint">Controls the feasibility activity threshold only (screening context). Does not change physics.</small>
                     </div>
                     
                     <div class="core-input-group">
@@ -73,46 +121,55 @@
                             <option value="neutron">Neutron Flux</option>
                             <option value="beam">Charged Particle Beam</option>
                         </select>
+                        <small class="input-hint">Choose how the source term is specified. For higher fidelity, prefer measured/transport-derived values.</small>
                     </div>
                     
                     <div class="core-input-group" id="fluxRow">
                         <label for="flux">Neutron Flux φ (cm⁻² s⁻¹):</label>
                         <input type="number" id="flux" value="1e14" step="1e12" min="0">
+                        <small class="input-hint"><strong>Target-plane flux</strong>. Best from MCNP/OpenMC/Serpent or dosimetry. Typical ranges: 1e11–1e16 depending on source/geometry.</small>
                     </div>
                     
                     <div class="core-input-group" id="beamRow" style="display:none;">
                         <label for="beamCurrent">Beam Current I (A):</label>
                         <input type="number" id="beamCurrent" value="1e-6" step="1e-7" min="0">
+                        <small class="input-hint">Electrical beam current. Use measured average current (duty-cycle handled separately).</small>
                     </div>
                     
                     <div class="core-input-group" id="beamRow2" style="display:none;">
                         <label for="particleCharge">Particle Charge q (e):</label>
                         <input type="number" id="particleCharge" value="1" step="1" min="1">
+                        <small class="input-hint">Charge state in elementary charges (e). Protons = 1, alpha = 2.</small>
                     </div>
                     
                     <div class="core-input-group" id="beamRow3" style="display:none;">
                         <label for="beamEnergy">Particle Kinetic Energy E (MeV):</label>
                         <input type="number" id="beamEnergy" value="10" step="0.1" min="0">
+                        <small class="input-hint">Beam energy at target. For higher fidelity use post-degrader / energy-loss estimate (SRIM) at target entrance.</small>
                     </div>
                     
                     <div class="core-input-group">
                         <label for="targetRadius">Target Radius r (cm):</label>
                         <input type="number" id="targetRadius" value="1.0" step="0.1" min="0.1">
+                        <small class="input-hint">Physical radius of the irradiated face. Large targets can violate point-source assumptions (see console warnings).</small>
                     </div>
                     
                     <div class="core-input-group">
                         <label for="targetThickness">Target Thickness d (cm):</label>
                         <input type="number" id="targetThickness" value="0.1" step="0.01" min="0.01">
+                        <small class="input-hint">Along the flux/beam direction. Thick targets increase self-shielding and burn-up sensitivity (planning-grade).</small>
                     </div>
                     
                     <div class="core-input-group">
                         <label for="sourceDistance">Source-to-Target Distance d (cm):</label>
                         <input type="number" id="sourceDistance" value="10" step="1" min="1">
+                        <small class="input-hint">Center-to-center distance used for solid-angle geometry. If < 3× radius, flux may be overestimated (warning is emitted).</small>
                     </div>
                     
                     <div class="core-input-group">
                         <label for="irradiationTime">Irradiation Duration t_irr (days):</label>
                         <input type="number" id="irradiationTime" value="7" step="0.1" min="0.001">
+                        <small class="input-hint">Total irradiation time. For higher fidelity, include planned interruptions via duty cycle and realistic uptime.</small>
                     </div>
                 </div>
             </section>
@@ -357,26 +414,32 @@
                             <div class="input-row">
                                 <label for="facilityCapitalCost">Capital Cost (USD):</label>
                                 <input type="number" id="facilityCapitalCost" value="10000000" step="100000" min="0">
+                                <small class="input-hint">Order-of-magnitude facility CAPEX (shielding, hot cells, utilities). For higher fidelity use a bottoms-up estimate (civil + shielding + hot lab + QA).</small>
                             </div>
                             <div class="input-row">
                                 <label for="annualOperatingCost">Annual Operating Cost (USD):</label>
                                 <input type="number" id="annualOperatingCost" value="2000000" step="100000" min="0">
+                                <small class="input-hint">Staffing, consumables, QA/QC, maintenance, regulatory compliance (planning-grade). Excludes electricity (computed separately).</small>
                             </div>
                             <div class="input-row">
                                 <label for="electricityCost">Electricity Cost (USD/kWh):</label>
                                 <input type="number" id="electricityCost" value="0.10" step="0.01" min="0">
+                                <small class="input-hint">Use your site tariff (all-in delivered). Typical industrial range: 0.05–0.25 USD/kWh.</small>
                             </div>
                             <div class="input-row">
                                 <label for="sourcePower">Source Power (MW):</label>
                                 <input type="number" id="sourcePower" value="1.0" step="0.1" min="0">
+                                <small class="input-hint">Electrical power draw for the source system (not neutron yield). Use measured wall-plug power if available.</small>
                             </div>
                             <div class="input-row">
                                 <label for="auxiliaryPower">Auxiliary Power (MW):</label>
                                 <input type="number" id="auxiliaryPower" value="0.5" step="0.1" min="0">
+                                <small class="input-hint">Vacuum, pumps, controls, hot-cell HVAC, and plant auxiliaries (planning-grade).</small>
                             </div>
                             <div class="input-row">
                                 <label for="sourceUptime">Source Availability (0-1):</label>
                                 <input type="number" id="sourceUptime" value="0.85" step="0.05" min="0" max="1">
+                                <small class="input-hint">Calendar uptime (maintenance + failures). Conservative early-stage values: 0.5–0.85.</small>
                             </div>
                         </div>
                     </div>

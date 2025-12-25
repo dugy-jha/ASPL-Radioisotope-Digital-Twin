@@ -114,6 +114,45 @@ section h2 {
 }
 
 /* ============================================================================
+   WALKTHROUGH / GUIDANCE
+   ============================================================================ */
+
+.walkthrough-section {
+    padding: 10px 0;
+}
+
+.walkthrough-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.walkthrough-card {
+    background: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 16px;
+    border-left: 4px solid #6c757d;
+}
+
+.walkthrough-card h3 {
+    font-size: 1.05em;
+    margin-bottom: 8px;
+    color: #2c3e50;
+}
+
+.walkthrough-list {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.walkthrough-list li {
+    margin: 6px 0;
+    line-height: 1.5;
+}
+
+/* ============================================================================
    CORE INPUTS SECTION
    ============================================================================ */
 
