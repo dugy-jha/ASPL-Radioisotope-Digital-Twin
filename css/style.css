@@ -158,51 +158,6 @@ section h2 {
     box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
 }
 
-.calculate-button-container {
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 2px solid #3498db;
-    text-align: center;
-}
-
-.btn-calculate {
-    padding: 14px 40px;
-    background-color: #3498db;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 1.1em;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.3s, transform 0.1s;
-    box-shadow: 0 2px 6px rgba(52, 152, 219, 0.3);
-}
-
-.btn-calculate:hover {
-    background-color: #2980b9;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.4);
-}
-
-.btn-calculate:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
-}
-
-.btn-calculate:disabled {
-    background-color: #95a5a6;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.calculate-hint {
-    display: block;
-    margin-top: 10px;
-    color: #7f8c8d;
-    font-size: 0.9em;
-    font-style: italic;
-}
-
 /* ============================================================================
    PROMINENT RESULTS SECTION
    ============================================================================ */

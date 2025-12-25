@@ -182,27 +182,9 @@ const UI = {
             });
         }
 
-        // Calculate button
-        const calculateButton = document.getElementById('calculateButton');
-        if (calculateButton) {
-            calculateButton.addEventListener('click', () => {
-                this.updateAllCharts();
-                // Visual feedback
-                calculateButton.textContent = 'Calculating...';
-                calculateButton.disabled = true;
-                setTimeout(() => {
-                    calculateButton.textContent = 'Calculate Results';
-                    calculateButton.disabled = false;
-                }, 100);
-            });
-        }
-
-        // Get all input elements (core inputs + advanced)
-        const coreInputs = document.querySelectorAll('#coreInputs input, #coreInputs select');
-        const advancedInputs = document.querySelectorAll('#controls input, #controls select');
-        const allInputs = [...coreInputs, ...advancedInputs];
-        
-        allInputs.forEach(input => {
+        // Get all input elements
+        const inputs = document.querySelectorAll('#controls input, #controls select');
+        inputs.forEach(input => {
             input.addEventListener('input', () => {
                 this.updateAllCharts();
                 // If application context changed, update route explorer
