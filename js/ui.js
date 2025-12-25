@@ -317,6 +317,13 @@ const UI = {
             });
         }
 
+        const loadASPLNectar = document.getElementById('loadASPLNectar');
+        if (loadASPLNectar) {
+            loadASPLNectar.addEventListener('click', () => {
+                this.loadASPLNectarWorkflow();
+            });
+        }
+
         // Get all input elements
         const inputs = document.querySelectorAll('#controls input, #controls select');
         inputs.forEach(input => {
@@ -1625,6 +1632,60 @@ const UI = {
         console.log(`Enrichment: ${enrichment}`);
         console.log(`Flux: ${flux.toExponential(2)} n/cm²/s`);
         console.log(`Irradiation time: ${irradiation_days} days`);
+        console.log('========================================\n');
+    },
+
+    /**
+     * Load ASPL Project NECTAR Workflow
+     * Parameters based on "ASPL __ IPR 22.12.2025 v1.2.pdf"
+     */
+    loadASPLNectarWorkflow: function() {
+        console.log('========================================');
+        console.log('ASPL Project NECTAR - Clinical Study Workflow');
+        console.log('========================================');
+
+        // 1. Select Pathway
+        const selector = document.getElementById('routeSelector');
+        if (selector) {
+            selector.value = 'LU177_NCA';
+            this.updateRouteWarningsFromSelector();
+        }
+
+        // 2. Configure High-Current Source (300 kV / 20 mA)
+        document.getElementById('sourceType').value = 'beam';
+        this.toggleSourceType();
+        document.getElementById('beamCurrent').value = 20e-3; // 20 mA
+        document.getElementById('beamEnergy').value = 0.3; // 300 keV
+        document.getElementById('particleCharge').value = 1; // Deuterons
+        document.getElementById('dutyCycle').value = (14/24).toFixed(3); // 14h Isotope production shift
+
+        // 3. Set Geometry & Target (Compact Hospital Bunker)
+        document.getElementById('targetRadius').value = 1.5;
+        document.getElementById('targetThickness').value = 0.2;
+        document.getElementById('sourceDistance').value = 2.0; // Close-in geometry
+        document.getElementById('parentDensity').value = 9.42e22; // atoms/cm3 (Lu2O3)
+        document.getElementById('enrichment').value = 0.95;
+
+        // 4. Operations & Logistics (Decentralized/Hospital-Adjacent)
+        document.getElementById('irradiationTime').value = 5; // 5 days irradiation
+        document.getElementById('chemistryDelay').value = 4; // 4 hours (On-site processing)
+        document.getElementById('transportTime').value = 1; // 1 hour (Hospital-adjacent delivery)
+        document.getElementById('applicationContext').value = 'medical';
+
+        // 5. Manufacturing & Economics (ROM Phase-1 Budget)
+        document.getElementById('facilityCapitalCost').value = 100000000; // 100 Cr order-of-magnitude
+        document.getElementById('annualOperatingCost').value = 15000000;
+        document.getElementById('electricityCost').value = 0.12;
+        document.getElementById('sourceUptime').value = 0.85;
+
+        // Force full recalculation
+        this.updateAllCharts();
+
+        console.log('ASPL Project NECTAR Workflow Loaded:');
+        console.log('- Mode: Split-Shift (14h Isotope Production)');
+        console.log('- Source: 300kV / 20mA High-Current D-T Generator');
+        console.log('- Logistics: Decentralized (5h total delay vs 168h import)');
+        console.log('- Economic: CAPEX ₹100 Cr (ROM)');
         console.log('========================================\n');
     },
 

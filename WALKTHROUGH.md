@@ -70,7 +70,40 @@ This document provides a high-fidelity walkthrough of the **Generic Radioisotope
 
 ---
 
-## Scenario 3: Fusion Reactor Concepts (GDT Source)
+## Scenario 3: ASPL Project NECTAR (High-Fidelity Clinical Study)
+**Goal:** Illustrate the dual-use "Split-Shift" model for decentralized Lu-177 production at a hospital site.
+
+### Step 0 — Automatic Configuration
+- **Click:** `ASPL Project NECTAR` in the "Test Cases & Study Scenarios" section.
+- **Context:** This scenario implements the parameters from the ASPL proposal (22 Dec. 2025).
+
+### Step 1 — Pathway Selection
+- **Automatically Selected:** `LU177_NCA — Lu-177 n.c.a.`
+- **Rationale:** Focuses on eliminating the "Decay Tax" for high-demand therapeutic isotopes.
+
+### Step 2 — Source / Flux Definition
+- **Source Type:** `Charged Particle Beam`
+- **Beam Current:** `0.02` A (20 mA)
+- **Beam Energy:** `0.3` MeV (300 keV)
+- **Duty Cycle:** `0.583` (14 hours/day production shift)
+- **Physics Rationale:** The high-current 20mA generator provides the high neutron source density needed to achieve near-reactor grade fluxes in a compact bunker.
+
+### Step 3 — Geometry & Target
+- **Source Distance:** `2.0` cm
+- **Physics Rationale:** A compact geometry maximizes the solid-angle interception, utilizing every neutron generated in the high-current target.
+
+### Step 4 — Operations & Logistics
+- **Processing Time:** `4` hours
+- **Transport Time:** `1` hour
+- **Operational Rationale:** By co-locating with a hospital, the "Decay Tax" is reduced from ~50% (imported) to <5% (on-site).
+
+### Manufacturing & Economics Review
+- **CAPEX:** ₹100 Cr ($100M ROM).
+- **Outcome:** Review the **Annual Cost Breakdown**. Notice how the dual-revenue model (BNCT therapy + Isotope sales) significantly improves the payback period compared to single-purpose facilities.
+
+---
+
+## Scenario 4: Fusion Reactor Concepts (GDT Source)
 **Goal:** Preliminary engineering study for a Gas Dynamic Trap (GDT) neutron source.
 
 ### Step 1 — Pathway Selection
