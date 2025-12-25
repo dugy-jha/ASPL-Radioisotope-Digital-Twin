@@ -7,6 +7,10 @@ This document provides a high-fidelity walkthrough of the **Generic Radioisotope
 ## Scenario A: Therapeutic Radioisotope (Lu-177 n.c.a.)
 **Goal:** Evaluate the feasibility of producing No-Carrier-Added (n.c.a.) Lutetium-177 for medical therapy using a moderated neutron source.
 
+### Step 0 — Automatic Configuration (Optional)
+- **Click:** `Lu-177 Baseline` in the "Step 0 — Select Study Scenario" section.
+- **Rationale:** Quickly loads validated baseline parameters for a standard high-flux moderated target.
+
 ### Step 1 — Pathway Selection
 - **Select:** `Lu-177 (n.c.a., Lu-176(n,γ))`
 - **Physics Status:** Notice the **RESONANCE_DOMINATED** and **PRODUCT_BURNUP_CRITICAL** warnings. This indicates that yield will be highly sensitive to the epithermal spectrum and irradiation time. Lu-177 has a massive resonance peak (~2090 barns at thermal).
@@ -36,6 +40,10 @@ This document provides a high-fidelity walkthrough of the **Generic Radioisotope
 ## Scenario B: Mo-99/Tc-99m Generator System
 **Goal:** Model the production of Mo-99 and its subsequent decay into Tc-99m for medical imaging.
 
+### Step 0 — Automatic Configuration (Optional)
+- **Click:** `Mo-99 Generator` in the "Step 0 — Select Study Scenario" section.
+- **Rationale:** Loads standard parameters for a $(n,\gamma)$ Mo-99 generator production cycle.
+
 ### Step 1 — Pathway Selection
 - **Select:** `Mo-99 (n,γ) -> Tc-99m`
 - **Physics Status:** Notice the **GENERATOR_DELAY_SENSITIVE** warning.
@@ -64,7 +72,7 @@ This document provides a high-fidelity walkthrough of the **Generic Radioisotope
 **Goal:** Illustrate the dual-use "Split-Shift" model for decentralized Lu-177 production at a hospital site.
 
 ### Step 0 — Automatic Configuration
-- **Click:** `ASPL Project NECTAR` in the "Test Cases & Study Scenarios" section.
+- **Click:** `ASPL Project NECTAR` in the "Step 0 — Select Study Scenario" section.
 - **Context:** This scenario implements the parameters from the ASPL proposal (22 Dec. 2025).
 
 ### Step 1 — Pathway Selection

@@ -81,6 +81,25 @@
         </section>
 
         <main class="usa-prose">
+            <!-- STEP 0 — TEST CASES & SCENARIOS -->
+            <section class="usa-card core-step" id="step0Scenarios">
+                <h2>Step 0 — Select Study Scenario (Optional)</h2>
+                <p class="usa-hint">Quick-load pre-configured parameters for baseline validation or specific clinical studies.</p>
+                <div class="validation-controls" style="background: none; border: none; padding: 0;">
+                    <div class="grid-row grid-gap">
+                        <div class="grid-col-4">
+                            <button id="loadLu177Test" class="usa-button usa-button--outline" style="width: 100%;">Lu-177 Baseline</button>
+                        </div>
+                        <div class="grid-col-4">
+                            <button id="loadMo99Test" class="usa-button usa-button--outline" style="width: 100%;">Mo-99 Generator</button>
+                        </div>
+                        <div class="grid-col-4">
+                            <button id="loadASPLNectar" class="usa-button usa-button--primary" style="width: 100%;">ASPL Project NECTAR</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- STEP 1 — PATHWAY SELECTION (MOST PROMINENT) -->
             <section class="usa-card core-step" id="pathwayStep">
                 <h2>Step 1 — Select Isotope Pathway (Physics Locked)</h2>
@@ -395,21 +414,6 @@
                         <div class="input-row">
                             <label for="sigmaChem">Chemistry Uncertainty σ_chem (%)</label>
                             <input type="number" id="sigmaChem" value="1" step="0.1" min="0" max="100">
-                        </div>
-                    </div>
-
-                    <div class="validation-controls">
-                        <h3>Test Cases & Study Scenarios</h3>
-                        <div class="grid-row grid-gap">
-                            <div class="grid-col-4">
-                                <button id="loadLu177Test" class="usa-button usa-button--outline" style="width: 100%;">Lu-177 Baseline</button>
-                            </div>
-                            <div class="grid-col-4">
-                                <button id="loadMo99Test" class="usa-button usa-button--outline" style="width: 100%;">Mo-99 Generator</button>
-                            </div>
-                            <div class="grid-col-4">
-                                <button id="loadASPLNectar" class="usa-button usa-button--primary" style="width: 100%;">ASPL Project NECTAR</button>
-                            </div>
                         </div>
                     </div>
                 </div>
