@@ -25,6 +25,12 @@
     <script src="js/routeEvaluator.js"></script>
     <script src="js/routeScoring.js"></script>
     <script src="js/charts.js"></script>
+    <script type="module">
+        import { DT_NEUTRONS_PER_MW } from './js/sources/sourceConstants.js';
+        window.DT_NEUTRONS_PER_MW = DT_NEUTRONS_PER_MW;
+        import { gdtNeutronSource } from './js/sources/gdtSource.js';
+        window.gdtNeutronSource = gdtNeutronSource;
+    </script>
     <script src="js/manufacturing/manufacturingAnalysis.js"></script>
     <script src="js/manufacturing/manufacturingCharts.js"></script>
     <script src="js/ui.js"></script>

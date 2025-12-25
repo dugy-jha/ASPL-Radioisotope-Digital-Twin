@@ -210,16 +210,10 @@ const RouteEvaluator = {
      * 
      * @param {Object} route - Route object from ISOTOPE_ROUTES
      * @param {Object} modelState - Current model state parameters
-     * @param {number} modelState.neutronFlux - Neutron flux (cm^-2 s^-1)
-     * @param {number} modelState.neutronEnergy - Neutron energy (MeV) for fast reactions
-     * @param {number} modelState.targetMass - Target mass (g)
-     * @param {number} modelState.enrichment - Target enrichment (fraction)
-     * @param {number} modelState.irradiationTime - Irradiation time (s)
-     * @param {number} modelState.selfShieldingFactor - Self-shielding factor (default 1.0)
-     * @param {number} modelState.targetDensity - Target atom density (atoms/cm³, optional)
+     * @param {Object} source - Source parameters (effectiveYield, etc.)
      * @returns {Object} Evaluation result
      */
-    evaluateRoute: function(route, modelState) {
+    evaluateRoute: function(route, modelState, source = null) {
         if (!route || !modelState) {
             throw new Error('Route and modelState must be provided');
         }
@@ -255,6 +249,27 @@ const RouteEvaluator = {
                            `Proceeding conservatively with route metadata only.`);
             }
             warnings.push('Isotope pathway not found in canonical registry - using route metadata only');
+        }
+
+        // ============================================================================
+        // FLUX DETERMINATION (ICD-SOURCE UNIFICATION)
+        // ============================================================================
+        
+        let effectiveFlux = 0;
+        
+        // If a standardized source object is provided, use its effectiveYield
+        if (source && source.effectiveYield !== undefined) {
+            // Source object follows ICD-SOURCE: { effectiveYield, ... }
+            effectiveFlux = source.effectiveYield;
+        } else {
+            // Fallback to legacy modelState.neutronFlux
+            effectiveFlux = modelState.neutronFlux || 0;
+        }
+
+        // Apply duty cycle if specified and not already applied by source module
+        const dutyCycle = modelState.dutyCycle || 1.0;
+        if (!source || source.effectiveYield === undefined) {
+             effectiveFlux *= dutyCycle;
         }
 
         // ============================================================================
@@ -329,8 +344,6 @@ const RouteEvaluator = {
                 warnings.push('Cross-section not specified - using conservative placeholder');
                 sigma_cm2 = 1e-24; // 1 barn = 1e-24 cm² (conservative placeholder)
             }
-            // Use thermal flux
-            effectiveFlux = modelState.neutronFlux || 1e14; // cm^-2 s^-1
         } else {
             // Fast neutron reaction (n,p, n,2n, n,d)
             // Use pathway cross-section if available, otherwise route
@@ -362,9 +375,6 @@ const RouteEvaluator = {
                     };
                 }
             }
-            
-            // Use fast neutron flux (typically lower than thermal)
-            effectiveFlux = modelState.neutronFlux || 1e13; // cm^-2 s^-1 (typically lower for fast)
         }
 
         // ============================================================================
@@ -762,7 +772,17 @@ const RouteEvaluator = {
             classification: classification,
             reasons: reasons,
             warnings: warnings,
-            impurity_risk_level: impurityRiskLevel
+            impurity_risk_level: impurityRiskLevel,
+            activity_EOB: activity_EOB,
+            delivered_activity: activity_delivered,
+            specific_activity: specificActivity,
+            reactionRate: reactionRate,
+            sigma_cm2: sigma_cm2,
+            effectiveFlux: effectiveFlux,
+            f_shield: f_shield,
+            f_sat: f_sat,
+            lambda: lambda,
+            N_EOB: N_EOB
         };
     },
 

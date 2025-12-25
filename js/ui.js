@@ -364,11 +364,41 @@ const UI = {
     /**
      * Get parameter value from input
      */
+    /**
+     * Get parameter value with validation
+     * 
+     * @param {string} id - Input element ID
+     * @param {number} defaultValue - Default value if input is invalid
+     * @returns {number} Validated number
+     */
     getParam: function(id, defaultValue = 0) {
         const elem = document.getElementById(id);
         if (!elem) return defaultValue;
-        const value = parseFloat(elem.value);
-        return isNaN(value) ? defaultValue : value;
+        
+        let value = parseFloat(elem.value);
+        if (isNaN(value)) {
+            // Apply visual feedback for invalid input
+            elem.classList.add('usa-input--error');
+            return defaultValue;
+        } else {
+            elem.classList.remove('usa-input--error');
+        }
+        
+        // Ensure non-negative for most engineering parameters
+        const nonNegativeParams = [
+            'halfLife', 'crossSection', 'enrichment', 'parentDensity', 
+            'targetRadius', 'targetThickness', 'sourceDistance', 
+            'irradiationTime', 'dutyCycle', 'chemistryDelay', 
+            'transportTime', 'chemistryLoss', 'flux', 'beamCurrent',
+            'availability', 'fusionPower', 'wallLoading'
+        ];
+        
+        if (nonNegativeParams.includes(id) && value < 0) {
+            elem.classList.add('usa-input--error');
+            return 0;
+        }
+
+        return value;
     },
 
     /**
@@ -798,22 +828,28 @@ const UI = {
 
     /**
      * Collect all results data for acceptance evaluation
+     * Refactored to use standardized evaluation (v2.2.2)
      */
     collectResults: function() {
-        const halfLife = this.getParam('halfLife', 1.0);
-        const crossSection = this.getParam('crossSection', 1e-24);
-        const enrichment = this.getParam('enrichment', 1.0);
-        const parentDensity = this.getParam('parentDensity', 5e22);
-        const targetRadius = this.getParam('targetRadius', 1.0);
-        const targetThickness = this.getParam('targetThickness', 0.1);
-        const sourceDistance = this.getParam('sourceDistance', 10);
-        const irradiationTimeDays = this.getParam('irradiationTime', 7);
-        const dutyCycle = this.getParam('dutyCycle', 1.0);
-        const chemistryDelayHours = this.getParam('chemistryDelay', 24);
-        const transportTimeHours = this.getParam('transportTime', 48);
-        const chemistryLoss = this.getParam('chemistryLoss', 1e-6);
-        const coolantFlow = this.getParam('coolantFlow', 0.1);
-        const heatCapacity = this.getParam('heatCapacity', 4184);
+        const modelState = this.getModelState();
+        const source = this.getSourcePerformance(modelState);
+        
+        let route = null;
+        if (typeof ISOTOPE_ROUTES !== 'undefined') {
+            route = ISOTOPE_ROUTES.find(r => r.id === modelState.routeId);
+        }
+        
+        if (!route) {
+            route = {
+                id: 'CUSTOM',
+                product_isotope: 'Target',
+                half_life_days: modelState.halfLife / 86400,
+                nominal_sigma_barns: modelState.crossSection / 1e-24
+            };
+        }
+
+        const evaluation = RouteEvaluator.evaluateRoute(route, modelState, source);
+
         const deltaTMax = this.getParam('deltaTMax', 50);
         const dpaRate = this.getParam('dpaRate', 1e-8);
         const dpaLimit = this.getParam('dpaLimit', 10);
@@ -822,78 +858,31 @@ const UI = {
         const sigmaGeom = this.getParam('sigmaGeom', 2) / 100;
         const sigmaChem = this.getParam('sigmaChem', 1) / 100;
 
-        // Calculate geometry
-        const Omega = Model.solidAngle(sourceDistance, targetRadius);
-        const eta = Model.geometricEfficiency(Omega);
-        const A_target = Math.PI * targetRadius * targetRadius;
-        const N_parent = parentDensity * enrichment * A_target * targetThickness;
-
-        // Get flux or calculate from beam
-        const sourceType = document.getElementById('sourceType').value;
-        let phi = 0;
-        let beamPower = 0;
-        let deltaT = 0;
-        if (sourceType === 'neutron') {
-            phi = this.getParam('flux', 1e14);
-        } else {
-            const I = this.getParam('beamCurrent', 1e-6);
-            const q = this.getParam('particleCharge', 1);
-            const beamEnergy = this.getParam('beamEnergy', 10);
-            const N_dot = Model.particleRate(I, q);
-            const S_eff = Model.effectiveSourceRate(N_dot, eta, 1.0, 1.0);
-            phi = Model.flux(S_eff, A_target);
-            beamPower = Model.beamPower(N_dot, beamEnergy);
-            deltaT = Model.temperatureRise(beamPower, coolantFlow, heatCapacity);
-        }
-
-        // Calculate reaction rate and activity
-        const Sigma = Model.macroscopicCrossSection(parentDensity, crossSection);
-        const f_shield = Model.selfShieldingFactor(Sigma, targetThickness);
-        const R = Model.reactionRate(N_parent, crossSection, phi * dutyCycle, f_shield);
-        const lambda = Model.decayConstant(halfLife);
-        const t_irr = irradiationTimeDays * 86400;
-        const f_sat = Model.saturationFactor(lambda, t_irr);
-        const N_EOB = Model.atomsAtEOB(R, f_sat, lambda);
-        const A_EOB = Model.activity(lambda, N_EOB);
-
-        // Calculate delivered activity
-        const t_chem = chemistryDelayHours * 3600;
-        const A_after_chem = A_EOB * Math.exp(-chemistryLoss * t_chem);
-        const t_transport = transportTimeHours * 3600;
-        const A_delivered = A_after_chem * Math.exp(-lambda * t_transport);
-
         // Calculate thermal derating
         let thermal_derate = 1.0;
-        if (sourceType === 'beam' && beamPower > 0) {
+        if (source.beamPower && source.beamPower > 0) {
+            const coolantFlow = this.getParam('coolantFlow', 0.1);
+            const heatCapacity = this.getParam('heatCapacity', 4184);
+            const deltaT = Model.temperatureRise(source.beamPower, coolantFlow, heatCapacity);
             thermal_derate = Model.thermalDerating(deltaT, deltaTMax);
         }
 
         // Calculate damage derating
         const t_damage = Model.damageTimeLimit(dpaLimit, dpaRate);
-        const damage_derate = Model.damageDerating(t_irr, t_damage);
-
-        // Calculate radionuclidic purity (from enrichment)
-        const radionuclidic_purity = enrichment;
-        const impurity_fraction = 1 - enrichment;
+        const damage_derate = Model.damageDerating(modelState.irradiationTime, t_damage);
 
         // Calculate total uncertainty (RSS)
-        const uncertainties = [
-            sigmaFlux,
-            sigmaSigma,
-            sigmaGeom,
-            sigmaChem
-        ];
-        const total_uncertainty = Model.uncertaintyRSS(uncertainties);
+        const total_uncertainty = Model.uncertaintyRSS([sigmaFlux, sigmaSigma, sigmaGeom, sigmaChem]);
 
         return {
-            radionuclidic_purity: radionuclidic_purity,
-            impurity_fraction: impurity_fraction,
+            radionuclidic_purity: modelState.enrichment,
+            impurity_fraction: 1 - modelState.enrichment,
             thermal_derate: thermal_derate,
             damage_derate: damage_derate,
-            deltaT: deltaT,
+            deltaT: (source.beamPower && Model.temperatureRise(source.beamPower, this.getParam('coolantFlow', 0.1), this.getParam('heatCapacity', 4184))) || 0,
             deltaT_max: deltaTMax,
-            delivered_activity: A_delivered,
-            activity_EOB: A_EOB,
+            delivered_activity: evaluation.delivered_activity,
+            activity_EOB: evaluation.activity_EOB,
             total_uncertainty: total_uncertainty
         };
     },
@@ -1108,7 +1097,12 @@ const UI = {
     /**
      * Update results display section
      */
-    updateResultsDisplay: function() {
+    /**
+     * Get current model state from inputs
+     * ICD-MODEL-STATE: Unified state carrier for all calculations.
+     */
+    getModelState: function() {
+        const routeId = document.getElementById('routeSelector').value;
         const halfLife = this.getParam('halfLife', 1.0);
         const crossSection = this.getParam('crossSection', 1e-24);
         const enrichment = this.getParam('enrichment', 1.0);
@@ -1120,33 +1114,118 @@ const UI = {
         const dutyCycle = this.getParam('dutyCycle', 1.0);
         const chemistryDelayHours = this.getParam('chemistryDelay', 24);
         const transportTimeHours = this.getParam('transportTime', 48);
-
-        // Calculate key results
+        const chemistryLoss = this.getParam('chemistryLoss', 1e-6);
+        const targetDensity = this.getParam('parentDensity', 5e22);
+        const targetMass = this.getParam('targetMass', 1.0);
+        
+        // Calculate geometry (physics-locked assumptions)
         const Omega = Model.solidAngle(sourceDistance, targetRadius);
         const eta = Model.geometricEfficiency(Omega);
         const A_target = Math.PI * targetRadius * targetRadius;
-        const N_parent = parentDensity * enrichment * A_target * targetThickness;
 
+        return {
+            routeId,
+            halfLife,
+            crossSection,
+            enrichment,
+            parentDensity,
+            targetRadius,
+            targetThickness,
+            sourceDistance,
+            irradiationTime: irradiationTimeDays * 86400,
+            dutyCycle,
+            chemistryDelay: chemistryDelayHours * 3600,
+            transportTime: transportTimeHours * 3600,
+            chemistryLoss,
+            targetDensity,
+            targetMass,
+            geometry: {
+                Omega,
+                eta,
+                A_target
+            }
+        };
+    },
+
+    /**
+     * Get current source performance (ICD-SOURCE)
+     */
+    getSourcePerformance: function(modelState) {
         const sourceType = document.getElementById('sourceType').value;
-        let phi = 0;
+        const A_target = modelState.geometry.A_target;
+        const eta = modelState.geometry.eta;
+        
+        if (sourceType === 'gdt') {
+            // Use GDT module (if available)
+            if (typeof gdtNeutronSource === 'function') {
+                const neutronsPerMW = window.DT_NEUTRONS_PER_MW || 3.5e17; // Use constant from module
+                const gdtParams = {
+                    fusionPower_MW: this.getParam('fusionPower', 10),
+                    neutronsPerMW: neutronsPerMW,
+                    dutyCycle: modelState.dutyCycle,
+                    availability: this.getParam('availability', 0.8),
+                    wallLoading_MWm2: this.getParam('wallLoading', 2),
+                    maxWallLoading_MWm2: 4
+                };
+                const gdt = gdtNeutronSource(gdtParams);
+                // Convert yield to effective flux at target
+                return {
+                    instantaneousYield: gdt.instantaneousYield,
+                    timeAveragedYield: gdt.timeAveragedYield,
+                    effectiveYield: (gdt.effectiveYield * eta) / A_target
+                };
+            }
+        }
+        
         if (sourceType === 'neutron') {
-            phi = this.getParam('flux', 1e14);
-        } else {
+            const phi = this.getParam('flux', 1e14);
+            return {
+                effectiveYield: phi
+            };
+        }
+        
+        if (sourceType === 'beam') {
             const I = this.getParam('beamCurrent', 1e-6);
             const q = this.getParam('particleCharge', 1);
+            const beamEnergy = this.getParam('beamEnergy', 10);
             const N_dot = Model.particleRate(I, q);
             const S_eff = Model.effectiveSourceRate(N_dot, eta, 1.0, 1.0);
-            phi = Model.flux(S_eff, A_target);
+            const phi = Model.flux(S_eff, A_target);
+            return {
+                effectiveYield: phi,
+                beamPower: Model.beamPower(N_dot, beamEnergy)
+            };
         }
 
-        const Sigma = Model.macroscopicCrossSection(parentDensity, crossSection);
-        const f_shield = Model.selfShieldingFactor(Sigma, targetThickness);
-        const R = Model.reactionRate(N_parent, crossSection, phi * dutyCycle, f_shield);
-        const lambda = Model.decayConstant(halfLife);
-        const t_irr = irradiationTimeDays * 86400;
-        const f_sat = Model.saturationFactor(lambda, t_irr);
-        const N_EOB = Model.atomsAtEOB(R, f_sat, lambda);
-        const A_EOB = Model.activity(lambda, N_EOB);
+        return { effectiveYield: 0 };
+    },
+
+    /**
+     * Update results display
+     * Refactored to use unified RouteEvaluator (v2.2.2)
+     */
+    updateResultsDisplay: function() {
+        const modelState = this.getModelState();
+        const source = this.getSourcePerformance(modelState);
+        
+        // Find route object (from registry)
+        let route = null;
+        if (typeof ISOTOPE_ROUTES !== 'undefined') {
+            route = ISOTOPE_ROUTES.find(r => r.id === modelState.routeId);
+        }
+        
+        // If no route selected, use a minimal proxy for custom evaluation
+        if (!route) {
+            route = {
+                id: 'CUSTOM',
+                product_isotope: 'Target',
+                half_life_days: modelState.halfLife / 86400,
+                nominal_sigma_barns: modelState.crossSection / 1e-24
+            };
+        }
+
+        // Core evaluation (Single source of truth)
+        const evaluation = RouteEvaluator.evaluateRoute(route, modelState, source);
 
         const formatNumber = (num) => {
             if (num >= 1e12) return (num / 1e12).toFixed(2) + ' TBq';
@@ -1156,117 +1235,53 @@ const UI = {
             return num.toExponential(2) + ' Bq';
         };
 
-        // Collect results for acceptance evaluation
-        const results = this.collectResults();
-        const acceptance = this.evaluateAcceptance(results);
-
-        const resultsDisplay = document.getElementById('resultsDisplay');
-        if (resultsDisplay) {
-            // Format acceptance status
-            let acceptanceHTML = '';
-            if (acceptance.pass && acceptance.warnings.length === 0) {
-                acceptanceHTML = '<div class="acceptance-status pass"><span class="status-icon">✔</span> <strong>PASS</strong> - All acceptance criteria met</div>';
-            } else if (acceptance.pass && acceptance.warnings.length > 0) {
-                acceptanceHTML = '<div class="acceptance-status warn"><span class="status-icon">⚠</span> <strong>WARN</strong> - Passes but has warnings</div>';
-            } else {
-                acceptanceHTML = '<div class="acceptance-status fail"><span class="status-icon">✖</span> <strong>FAIL</strong> - Acceptance criteria not met</div>';
-            }
-
-            // Format failures and warnings with regulatory citations
-            let failuresHTML = '';
-            if (acceptance.failures.length > 0) {
-                failuresHTML = '<div class="acceptance-failures"><h4>Failures:</h4><ul>';
-                acceptance.failures.forEach(failure => {
-                    let citationParts = [];
-                    
-                    // AERB citation
-                    if (failure.code) {
-                        citationParts.push(`AERB ${failure.code}`);
-                    }
-                    
-                    // IAEA citations
-                    if (failure.iaea_alignment && failure.iaea_alignment.length > 0) {
-                        const iaeaCodes = failure.iaea_alignment.map(iaea => iaea.code).join(', ');
-                        citationParts.push(`IAEA ${iaeaCodes}`);
-                    }
-                    
-                    const citation = citationParts.length > 0
-                        ? ` <span class="regulatory-citation">Aligned with ${citationParts.join(' | ')}</span>`
-                        : '';
-                    
-                    failuresHTML += `<li>${failure.message}${citation}</li>`;
-                });
-                failuresHTML += '</ul></div>';
-            }
-
-            let warningsHTML = '';
-            if (acceptance.warnings.length > 0) {
-                warningsHTML = '<div class="acceptance-warnings"><h4>Warnings:</h4><ul>';
-                acceptance.warnings.forEach(warning => {
-                    let citationParts = [];
-                    
-                    // AERB citation
-                    if (warning.code) {
-                        citationParts.push(`AERB ${warning.code}`);
-                    }
-                    
-                    // IAEA citations
-                    if (warning.iaea_alignment && warning.iaea_alignment.length > 0) {
-                        const iaeaCodes = warning.iaea_alignment.map(iaea => iaea.code).join(', ');
-                        citationParts.push(`IAEA ${iaeaCodes}`);
-                    }
-                    
-                    const citation = citationParts.length > 0
-                        ? ` <span class="regulatory-citation">Aligned with ${citationParts.join(' | ')}</span>`
-                        : '';
-                    
-                    warningsHTML += `<li>${warning.message}${citation}</li>`;
-                });
-                warningsHTML += '</ul></div>';
-            }
-
-            resultsDisplay.innerHTML = `
-                <div class="result-summary">
-                    <h3>Key Results</h3>
-                    <p><strong>Reaction Rate:</strong> ${R.toExponential(2)} reactions/s</p>
-                    <p><strong>Decay Constant:</strong> ${lambda.toExponential(2)} s⁻¹</p>
-                    <p><strong>Saturation Factor:</strong> ${(f_sat * 100).toFixed(2)}%</p>
-                    <p><strong>Atoms at EOB:</strong> ${N_EOB.toExponential(2)}</p>
-                    <p><strong>Activity at EOB:</strong> ${formatNumber(A_EOB)} (order-of-magnitude estimate)</p>
-                    <p><strong>Geometric Efficiency:</strong> ${(eta * 100).toFixed(2)}%</p>
-                    <p><strong>Self-Shielding Factor:</strong> ${(f_shield * 100).toFixed(2)}%</p>
-                </div>
-                <div class="acceptance-section">
-                    <h3>Acceptance Criteria</h3>
-                    ${acceptanceHTML}
-                    ${failuresHTML}
-                    ${warningsHTML}
-                </div>
-            `;
-        }
-
-        // UI-ONLY CHANGE — NO PHYSICS MODIFICATION
-        // Mirror key outputs into the USWDS-style Results Panel boxes (if present)
+        // UI-ONLY: Mirror outputs into USWDS boxes
         const activityEOBEl = document.getElementById('activityEOB');
         if (activityEOBEl) {
-            activityEOBEl.textContent = formatNumber(A_EOB);
+            activityEOBEl.textContent = formatNumber(evaluation.activity_EOB);
         }
 
         const activityDeliveredEl = document.getElementById('activityDelivered');
-        if (activityDeliveredEl && results && typeof results.delivered_activity === 'number') {
-            activityDeliveredEl.textContent = formatNumber(results.delivered_activity);
+        if (activityDeliveredEl) {
+            activityDeliveredEl.textContent = formatNumber(evaluation.delivered_activity);
         }
 
         const feasibilityBadgeEl = document.getElementById('feasibilityBadge');
         if (feasibilityBadgeEl) {
-            // Derive from existing acceptance evaluation only (no new logic)
-            if (acceptance.pass && acceptance.warnings.length === 0) {
-                feasibilityBadgeEl.innerHTML = '<span class="acceptance-status pass"><span class="status-icon">✔</span> PASS</span>';
-            } else if (acceptance.pass && acceptance.warnings.length > 0) {
-                feasibilityBadgeEl.innerHTML = '<span class="acceptance-status warn"><span class="status-icon">⚠</span> PASS (with warnings)</span>';
-            } else {
-                feasibilityBadgeEl.innerHTML = '<span class="acceptance-status fail"><span class="status-icon">✖</span> FAIL</span>';
+            const cls = evaluation.classification;
+            let statusClass = 'fail';
+            if (cls === 'Feasible') statusClass = 'pass';
+            if (cls === 'Feasible with constraints') statusClass = 'warn';
+            
+            feasibilityBadgeEl.innerHTML = `<span class="acceptance-status ${statusClass}"><span class="status-icon">${statusClass === 'pass' ? '✔' : (statusClass === 'warn' ? '⚠' : '✖')}</span> ${cls.toUpperCase()}</span>`;
+        }
+
+        // Results summary display
+        const resultsDisplay = document.getElementById('resultsDisplay');
+        if (resultsDisplay) {
+            let warningsHTML = '';
+            if (evaluation.warnings.length > 0) {
+                warningsHTML = `<div class="acceptance-warnings"><h4>Warnings:</h4><ul>${evaluation.warnings.map(w => `<li>${w}</li>`).join('')}</ul></div>`;
             }
+            
+            let reasonsHTML = '';
+            if (evaluation.reasons.length > 0) {
+                reasonsHTML = `<div class="acceptance-failures"><h4>Constraints/Reasons:</h4><ul>${evaluation.reasons.map(r => `<li>${r}</li>`).join('')}</ul></div>`;
+            }
+
+            resultsDisplay.innerHTML = `
+                <div class="result-summary">
+                    <h3>Physics Evaluation Results</h3>
+                    <p><strong>EOB Activity:</strong> ${formatNumber(evaluation.activity_EOB)} (order-of-magnitude estimate)</p>
+                    <p><strong>Delivered Activity:</strong> ${formatNumber(evaluation.delivered_activity)} (post-processing)</p>
+                    <p><strong>Specific Activity:</strong> ${evaluation.specific_activity ? evaluation.specific_activity.toExponential(2) : 'N/A'} Bq/g</p>
+                    <p><strong>Impurity Risk:</strong> ${evaluation.impurity_risk_level || 'Low'}</p>
+                </div>
+                <div class="acceptance-section">
+                    ${reasonsHTML}
+                    ${warningsHTML}
+                </div>
+            `;
         }
     },
 
