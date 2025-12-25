@@ -9,6 +9,10 @@
  * - Only sliders, inputs, event handlers, and DOM updates
  */
 
+window.onerror = function (msg, url, line, col, error) {
+  console.error("GLOBAL ERROR:", msg, url, line, col, error);
+};
+
 const UI = {
     /**
      * Initialize UI components and event listeners
@@ -2333,6 +2337,50 @@ if (typeof console !== 'undefined' && console.warn) {
         'Structural uncertainties (flux geometry, spectra, burn-up physics) may exceed parameter uncertainty bands.'
     );
 }
+
+// ============================================================================
+// CORE SANITY TEST WIRING
+// ============================================================================
+// Wire core test button (if available)
+(function() {
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', wireCoreTest);
+    } else {
+        wireCoreTest();
+    }
+    
+    function wireCoreTest() {
+        const btn = document.getElementById('coreTestBtn');
+        if (btn) {
+            btn.onclick = function() {
+                try {
+                    // Import and call coreSanityTest
+                    import('../js/coreSanity.js').then(function(module) {
+                        const result = module.coreSanityTest();
+                        const out = document.getElementById('coreTestOut');
+                        if (out) {
+                            out.textContent = 'Core sanity result: ' + result.toExponential(3);
+                        }
+                        console.log('Core sanity test passed:', result);
+                    }).catch(function(e) {
+                        console.error('Core sanity import failed:', e);
+                        const out = document.getElementById('coreTestOut');
+                        if (out) {
+                            out.textContent = 'Error: ' + e.message;
+                        }
+                    });
+                } catch (e) {
+                    console.error('Core sanity failed:', e);
+                    const out = document.getElementById('coreTestOut');
+                    if (out) {
+                        out.textContent = 'Error: ' + e.message;
+                    }
+                }
+            };
+        }
+    }
+})();
 
 // Initialize UI when DOM is loaded
 if (document.readyState === 'loading') {

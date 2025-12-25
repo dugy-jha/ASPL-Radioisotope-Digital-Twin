@@ -1,3 +1,9 @@
+/*
+PHYSICS CORE — LOCKED
+Do not modify without full revalidation.
+Any UI, routing, or scoring logic must treat this as read-only.
+*/
+
 /**
  * advancedPhysics.js
  * 

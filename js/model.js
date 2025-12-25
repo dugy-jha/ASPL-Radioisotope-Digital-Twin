@@ -1,3 +1,9 @@
+/*
+PHYSICS CORE — LOCKED
+Do not modify without full revalidation.
+Any UI, routing, or scoring logic must treat this as read-only.
+*/
+
 /**
  * model.js
  * 
@@ -1306,3 +1312,14 @@ const Model = {
 
 // Initialize model when script loads
 Model.init();
+
+// ============================================================================
+// MODEL SELF-TEST
+// ============================================================================
+export function modelSelfTest() {
+  const lambda = Math.log(2) / (1 * 24 * 3600);
+  const R = 1e9;
+  const t = 1 * 24 * 3600;
+  const f = 1 - Math.exp(-lambda * t);
+  return R * f / lambda;
+}
