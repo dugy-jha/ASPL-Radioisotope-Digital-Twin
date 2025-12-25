@@ -2694,3 +2694,30 @@ if (document.readyState === 'loading') {
 } else {
     UI.init();
 }
+
+// ===============================
+// UI ACTION CONTROLS (SAFE)
+// ===============================
+// UI-ONLY CHANGE — NO PHYSICS MODIFICATION
+// Manual "Calculate" triggers the existing UI orchestration function.
+document.getElementById("calculateBtn")?.addEventListener("click", () => {
+  console.log("[UI] Manual calculation triggered");
+
+  // This app’s orchestration entrypoint is UI.updateAllCharts().
+  if (typeof UI !== "undefined" && typeof UI.updateAllCharts === "function") {
+    UI.updateAllCharts();
+  } else if (typeof updateModel === "function") {
+    updateModel();
+  } else if (typeof runCalculation === "function") {
+    runCalculation();
+  } else if (typeof evaluateRoute === "function") {
+    evaluateRoute();
+  } else {
+    console.warn("No calculation function found");
+  }
+});
+
+document.getElementById("resetBtn")?.addEventListener("click", () => {
+  console.log("[UI] Reset triggered");
+  window.location.reload();
+});

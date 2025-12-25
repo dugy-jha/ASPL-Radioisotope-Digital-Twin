@@ -184,6 +184,33 @@
                 <input class="usa-input" type="number" id="transportTime" value="48" step="1" min="0" />
             </section>
 
+            <!-- ACTION BAR (UI-only; does not change physics) -->
+            <section class="usa-card action-bar">
+                <div class="grid-row grid-gap">
+                    <div class="grid-col-6">
+                        <button
+                            id="calculateBtn"
+                            class="usa-button usa-button--primary"
+                            type="button">
+                            ▶ Calculate Results
+                        </button>
+                    </div>
+
+                    <div class="grid-col-6">
+                        <button
+                            id="resetBtn"
+                            class="usa-button usa-button--outline"
+                            type="button">
+                            ⟲ Reset Inputs
+                        </button>
+                    </div>
+                </div>
+
+                <p class="usa-hint">
+                    Calculations are deterministic. Press “Calculate” after updating inputs.
+                </p>
+            </section>
+
             <!-- RESULTS PANEL (PRIMARY OUTPUT) -->
             <section class="usa-card results-panel" id="resultsPanel">
                 <h2>Results (Order-of-Magnitude Estimates)</h2>
