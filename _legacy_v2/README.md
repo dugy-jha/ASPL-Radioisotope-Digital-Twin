@@ -27,6 +27,8 @@ A high-fidelity, planning-grade digital twin for radioisotope production using n
 - **Burn-Up Physics:** Self-shielded product and parent burn-up (optional data-dependent field).
 - **Resonance Integrals:** Epithermal resonance modeling using effective integral approximations.
 
+**[Read the Full Operational Walkthrough here](WALKTHROUGH.md)**
+
 ### 2. Neutron Source Modeling (ICD-SOURCE)
 - **Standard Flux:** Direct input of neutron flux at the target plane.
 - **D-T Generators:** Point-source solid-angle geometry for fusion neutron tubes.
@@ -94,6 +96,14 @@ Run Sanity Tests in Browser Console:
 // Run minimal physics kernel test
 import('./js/coreSanity.js').then(m => console.log(m.coreSanityTest()));
 ```
+
+---
+
+## 📖 Usage Walkthrough
+
+For a detailed, step-by-step engineering walkthrough using real-world parameters (Lu-177, Mo-99, Cu-67) and GDT neutron source configurations, see:
+
+👉 **[WALKTHROUGH.md](WALKTHROUGH.md)**
 
 ---
 
