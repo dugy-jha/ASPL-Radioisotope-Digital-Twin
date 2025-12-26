@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generic Radioisotope Production Digital Twin</title>
+    <link rel="stylesheet" href="css/style.css">
+    
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    
+    <!-- MathJax -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <!-- JavaScript files - Load order: atomicMasses, limitations, routes, isotopeRoutes, isotopePathways, model, advancedPhysics, solverInterfaces, routeEvaluator, routeScoring, charts, ui -->
+    <script src="js/atomicMasses.js"></script>
+    <script src="js/limitations.js"></script>
+    <script src="js/routes.js"></script>
+    <script src="js/isotopeRoutes.js"></script>
+    <script src="routing/isotopePathways.js"></script>
+    <script type="module" src="js/app.js"></script>
+    <script src="js/manufacturing/manufacturingAnalysis.js"></script>
+    <script src="js/manufacturing/manufacturingCharts.js"></script>
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container app-shell">
+        <!-- TOP BANNER (PLANNING WARNING) -->
+        <section class="usa-alert usa-alert--info" id="planningWarningBanner">
+            <div class="usa-alert__body">
+                <h2 class="usa-alert__heading">Generic Radioisotope Production Digital Twin</h2>
+                <p class="usa-alert__text">
+                    Planning-grade physics tool for comparative analysis.
+                    Results are order-of-magnitude estimates only.
+                    No production guarantees or licensing approval.
+                </p>
+                <p class="usa-alert__text">
+                    🔒 Physics pathways are locked. Only source, moderation, and geometry may be changed.
+                </p>
+            </div>
+        </section>
+
+        <main class="usa-prose">
+            <!-- STEP 1 — PATHWAY SELECTION (MOST PROMINENT) -->
+            <section class="usa-card core-step" id="pathwayStep">
+                <h2>Step 1 — Select Isotope Pathway (Physics Locked)</h2>
+
+                <label class="usa-label" for="routeSelector">Isotope Route</label>
+                <select id="routeSelector" class="usa-select"></select>
+
+                <p class="usa-hint">
+                    Cross-sections, decay chains, and chemistry defaults are fixed by the canonical pathway registry.
+                </p>
+
+                <div id="routeWarnings"></div>
+
+                <!-- Keep the full route explorer available (UI-only); used for rich route cards -->
+                <div id="routeExplorer" class="route-explorer-section">
+                    <div class="route-explorer-tabs">
+                        <button class="route-explorer-tab active" data-tab="fast-neutron" onclick="UI.switchRouteExplorerTab('fast-neutron')">Fast Neutron Routes</button>
+                        <button class="route-explorer-tab" data-tab="moderated-capture" onclick="UI.switchRouteExplorerTab('moderated-capture')">Moderated Capture</button>
+                        <button class="route-explorer-tab" data-tab="generator" onclick="UI.switchRouteExplorerTab('generator')">Generator & Decay Chains</button>
+                        <button class="route-explorer-tab" data-tab="alpha" onclick="UI.switchRouteExplorerTab('alpha')">Alpha & Strategic</button>
+                        <button class="route-explorer-tab" data-tab="industrial" onclick="UI.switchRouteExplorerTab('industrial')">Industrial</button>
+                    </div>
+
+                    <div id="fastNeutronTab" class="route-explorer-tab-content active">
+                        <div id="fastNeutronRoutesList" class="routes-list"></div>
+                    </div>
+                    <div id="moderatedCaptureTab" class="route-explorer-tab-content">
+                        <div id="moderatedCaptureRoutesList" class="routes-list"></div>
+                    </div>
+                    <div id="generatorTab" class="route-explorer-tab-content">
+                        <div id="generatorRoutesList" class="routes-list"></div>
+                    </div>
+                    <div id="alphaTab" class="route-explorer-tab-content">
+                        <div id="alphaRoutesList" class="routes-list"></div>
+                    </div>
+                    <div id="industrialTab" class="route-explorer-tab-content">
+                        <div id="industrialRoutesList" class="routes-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- STEP 2 — SOURCE / FLUX INPUT -->
+            <section class="usa-card core-step" id="sourceStep">
+                <h2>Step 2 — Source / Flux Definition</h2>
+
+                <label class="usa-label" for="sourceType">Source Type</label>
+                <select id="sourceType" class="usa-select">
+                    <option value="neutron">Neutron Flux</option>
+                    <option value="beam">Charged Particle Beam</option>
+                    <option value="gdt">GDT Trap (D-T Fusion)</option>
+                </select>
+
+                <div id="sourceInputs">
+                    <div id="fluxRow">
+                        <label class="usa-label" for="flux">Neutron Flux φ (cm⁻² s⁻¹)</label>
+                        <input class="usa-input" type="number" id="flux" value="1e14" step="1e12" min="0" />
+                        <p class="usa-hint">Best practice: transport-derived or measured flux at target plane.</p>
+                    </div>
+
+                    <div id="gdtRow" style="display:none;">
+                        <label class="usa-label" for="fusionPower">Fusion Power (MW)</label>
+                        <input class="usa-input" type="number" id="fusionPower" value="10" step="1" min="0" />
+                        
+                        <label class="usa-label" for="wallLoading">Wall Loading (MW/m²)</label>
+                        <input class="usa-input" type="number" id="wallLoading" value="2" step="0.1" min="0" />
+                        
+                        <label class="usa-label" for="availability">Availability (fraction)</label>
+                        <input class="usa-input" type="number" id="availability" value="0.8" step="0.05" min="0" max="1" />
+                    </div>
+
+                    <div id="beamRow" style="display:none;">
+                        <label class="usa-label" for="beamCurrent">Beam Current I (A)</label>
+                        <input class="usa-input" type="number" id="beamCurrent" value="1e-6" step="1e-7" min="0" />
+                    </div>
+
+                    <div id="beamRow2" style="display:none;">
+                        <label class="usa-label" for="particleCharge">Particle Charge q (e)</label>
+                        <input class="usa-input" type="number" id="particleCharge" value="1" step="1" min="1" />
+                    </div>
+
+                    <div id="beamRow3" style="display:none;">
+                        <label class="usa-label" for="beamEnergy">Particle Kinetic Energy E (MeV)</label>
+                        <input class="usa-input" type="number" id="beamEnergy" value="10" step="0.1" min="0" />
+                    </div>
+
+                    <label class="usa-label" for="dutyCycle">Source Duty Cycle (fraction)</label>
+                    <input class="usa-input" type="number" id="dutyCycle" value="1.0" step="0.01" min="0" max="1" />
+                </div>
+
+                <div id="globalWarnings"></div>
+            </section>
+
+            <!-- STEP 3 — GEOMETRY & TARGET -->
+            <section class="usa-card core-step" id="geometryStep">
+                <h2>Step 3 — Geometry & Target</h2>
+
+                <div class="grid-row grid-gap">
+                    <div class="grid-col-4">
+                        <label class="usa-label" for="targetRadius">Target Radius (cm)</label>
+                        <input class="usa-input" type="number" id="targetRadius" value="1.0" step="0.1" min="0.1" />
+                    </div>
+                    <div class="grid-col-4">
+                        <label class="usa-label" for="targetThickness">Target Thickness (cm)</label>
+                        <input class="usa-input" type="number" id="targetThickness" value="0.1" step="0.01" min="0.01" />
+                    </div>
+                    <div class="grid-col-4">
+                        <label class="usa-label" for="sourceDistance">Source Distance (cm)</label>
+                        <!-- NOTE: keep ID `sourceDistance` for backward-compatible calculations -->
+                        <input class="usa-input" type="number" id="sourceDistance" value="10" step="1" min="1" />
+                    </div>
+                </div>
+
+                <label class="usa-label" for="parentDensity">Parent Atom Number Density (atoms/cm³)</label>
+                <input class="usa-input" type="number" id="parentDensity" value="5e22" step="1e21" min="0" />
+                <p class="usa-hint">For higher fidelity, derive from target density, molar mass, and enrichment.</p>
+
+                <div id="geometryWarnings"></div>
+            </section>
+
+            <!-- STEP 4 — OPERATIONS & LOGISTICS -->
+            <section class="usa-card core-step" id="opsStep">
+                <h2>Step 4 — Operations & Logistics</h2>
+
+                <label class="usa-label" for="applicationContext">Application Context</label>
+                <select id="applicationContext" class="usa-select">
+                    <option value="medical">Medical (viable ≥ 1 GBq)</option>
+                    <option value="industrial">Industrial (viable ≥ 0.1 GBq)</option>
+                    <option value="research">Research (viable ≥ 0.01 GBq)</option>
+                </select>
+
+                <label class="usa-label" for="irradiationTime">Irradiation Time (days)</label>
+                <input class="usa-input" type="number" id="irradiationTime" value="7" step="0.1" min="0.001" />
+
+                <label class="usa-label" for="chemistryDelay">Processing Time (hours)</label>
+                <!-- NOTE: keep ID `chemistryDelay` for backward-compatible calculations -->
+                <input class="usa-input" type="number" id="chemistryDelay" value="24" step="1" min="0" />
+
+                <label class="usa-label" for="transportTime">Transport Time (hours)</label>
+                <input class="usa-input" type="number" id="transportTime" value="48" step="1" min="0" />
+            </section>
+
+            <!-- ACTION BAR (UI-only; does not change physics) -->
+            <section class="usa-card action-bar">
+                <div class="grid-row grid-gap">
+                    <div class="grid-col-6">
+                        <button
+                            id="calculateBtn"
+                            class="usa-button usa-button--primary"
+                            type="button">
+                            ▶ Calculate Results
+                        </button>
+                    </div>
+
+                    <div class="grid-col-6">
+                        <button
+                            id="resetBtn"
+                            class="usa-button usa-button--outline"
+                            type="button">
+                            ⟲ Reset Inputs
+                        </button>
+                    </div>
+                </div>
+
+                <p class="usa-hint">
+                    Calculations are deterministic. Press “Calculate” after updating inputs.
+                </p>
+            </section>
+
+            <!-- RESULTS PANEL (PRIMARY OUTPUT) -->
+            <section class="usa-card results-panel" id="resultsPanel">
+                <h2>Results (Order-of-Magnitude Estimates)</h2>
+
+                <div class="grid-row grid-gap">
+                    <div class="grid-col-4 result-box">
+                        <h3>Activity at EOB</h3>
+                        <div id="activityEOB"></div>
+                        <small>(order-of-magnitude)</small>
+                    </div>
+                    <div class="grid-col-4 result-box">
+                        <h3>Delivered Activity</h3>
+                        <div id="activityDelivered"></div>
+                        <small>(order-of-magnitude)</small>
+                    </div>
+                    <div class="grid-col-4 result-box">
+                        <h3>Feasibility</h3>
+                        <div id="feasibilityBadge"></div>
+                    </div>
+                </div>
+
+                <!-- Keep legacy full results output for audit traceability -->
+                <div id="resultsDisplay" class="results-display" style="margin-top: 1rem;"></div>
+            </section>
+
+            <!-- PRIMARY CHART (unchanged container ID) -->
+            <section class="usa-card core-step" id="primaryPlot">
+                <h2>Activity vs Irradiation Time</h2>
+                <div class="chart-container main-chart">
+                    <div id="chartActivity" class="chart"></div>
+                </div>
+            </section>
+
+            <!-- Additional visualizations (containers preserved so existing Plotly init does not fail) -->
+            <details class="usa-accordion" id="additionalVisualizationsAccordion">
+                <summary class="usa-accordion__button">Additional Visualizations</summary>
+                <div id="additionalVisualizations">
+                    <div class="chart-grid">
+                        <div class="chart-container"><div id="chartReactionRate" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartDecayChain" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartWaterfall" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartTransport" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartUncertainty" class="chart"></div></div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- COLLAPSIBLE SECTIONS (SECONDARY) -->
+            <details class="usa-accordion" id="engineeringGuardrails">
+                <summary class="usa-accordion__button">Engineering Guardrails (Screening Only)</summary>
+                <div id="engineeringPanel">
+                    <!-- Keep existing engineering inputs (IDs preserved) -->
+                    <div class="usa-card core-step">
+                        <label class="usa-label" for="coolantFlow">Coolant Mass Flow Rate (kg/s)</label>
+                        <input class="usa-input" type="number" id="coolantFlow" value="0.1" step="0.01" min="0.001" />
+
+                        <label class="usa-label" for="heatCapacity">Coolant Heat Capacity (J/(kg·K))</label>
+                        <input class="usa-input" type="number" id="heatCapacity" value="4184" step="100" min="100" />
+
+                        <label class="usa-label" for="deltaTMax">Max Allowable ΔT (K)</label>
+                        <input class="usa-input" type="number" id="deltaTMax" value="50" step="1" min="1" />
+
+                        <label class="usa-label" for="dpaLimit">Damage Limit (DPA)</label>
+                        <input class="usa-input" type="number" id="dpaLimit" value="10" step="0.1" min="0.1" />
+
+                        <label class="usa-label" for="dpaRate">Damage Rate (DPA/s)</label>
+                        <input class="usa-input" type="number" id="dpaRate" value="1e-8" step="1e-9" min="0" />
+                    </div>
+
+                    <!-- Existing charts (IDs preserved) -->
+                    <div class="chart-grid">
+                        <div class="chart-container"><div id="chartTemperature" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartDamage" class="chart"></div></div>
+                    </div>
+                </div>
+            </details>
+
+            <details class="usa-accordion" id="comparativeAccordion">
+                <summary class="usa-accordion__button">Comparative Analytics</summary>
+                <div id="comparativePlots">
+                    <!-- Keep existing comparative inputs/charts (IDs preserved) -->
+                    <div class="comparative-controls">
+                        <div class="control-group">
+                            <h3>Comparison Set 1: Therapeutic Isotopes</h3>
+                            <div class="comparison-set">
+                                <label><input type="checkbox" id="compareLu177" checked> Lu-177 (Lu-176(n,γ))</label>
+                                <label><input type="checkbox" id="compareSc47" checked> Sc-47 (Ti-47(n,p))</label>
+                                <label><input type="checkbox" id="compareCu67" checked> Cu-67 (Zn-67(n,p))</label>
+                            </div>
+                        </div>
+                        <div class="control-group">
+                            <h3>Comparison Set 2: Mo-99 Routes</h3>
+                            <div class="comparison-set">
+                                <label><input type="checkbox" id="compareMo99Reactor" checked> Mo-99 Reactor Route (Mo-98(n,γ))</label>
+                                <label><input type="checkbox" id="compareMo99Fast" checked> Mo-99 Fast Route (Mo-100(n,2n))</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparative-charts-grid">
+                        <div class="chart-container"><div id="chartComparativeActivity" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartComparativeSpecificActivity" class="chart"></div></div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Keep advanced parameters available for audit, but out of the core flow -->
+            <details class="usa-accordion" id="advancedAccordion">
+                <summary class="usa-accordion__button">Advanced Inputs (Physics Locked Where Applicable)</summary>
+                <div id="controls" class="controls-section">
+                    <div class="control-group">
+                        <h3>Nuclear Parameters</h3>
+                        <div class="input-row">
+                            <label for="halfLife">Product Half-Life (days)</label>
+                            <input type="number" id="halfLife" value="1.0" step="0.1" min="0.001">
+                        </div>
+                        <div class="input-row">
+                            <label for="crossSection">Activation Cross-Section σ (cm²) (locked)</label>
+                            <input type="number" id="crossSection" value="1e-24" step="1e-25" min="0" format="scientific">
+                        </div>
+                        <div class="input-row">
+                            <label for="enrichment">Parent Enrichment (fraction)</label>
+                            <input type="number" id="enrichment" value="1.0" step="0.01" min="0" max="1">
+                        </div>
+                        <div class="input-row">
+                            <label for="sigmaBurn">Parent Burn-Up Cross-Section σ_burn (cm²) (locked)</label>
+                            <input type="number" id="sigmaBurn" value="1e-24" step="1e-25" min="0">
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <h3>Uncertainty Parameters</h3>
+                        <div class="input-row">
+                            <label for="sigmaFlux">Flux Uncertainty σ_φ (%)</label>
+                            <input type="number" id="sigmaFlux" value="5" step="0.1" min="0" max="100">
+                        </div>
+                        <div class="input-row">
+                            <label for="sigmaSigma">Cross-Section Uncertainty σ_σ (%)</label>
+                            <input type="number" id="sigmaSigma" value="3" step="0.1" min="0" max="100">
+                        </div>
+                        <div class="input-row">
+                            <label for="sigmaGeom">Geometry Uncertainty σ_geom (%)</label>
+                            <input type="number" id="sigmaGeom" value="2" step="0.1" min="0" max="100">
+                        </div>
+                        <div class="input-row">
+                            <label for="sigmaChem">Chemistry Uncertainty σ_chem (%)</label>
+                            <input type="number" id="sigmaChem" value="1" step="0.1" min="0" max="100">
+                        </div>
+                    </div>
+
+                    <div class="validation-controls">
+                        <h3>Test Cases</h3>
+                        <button id="loadLu177Test" class="btn-validation">Load Lu-177 Test Case</button>
+                        <button id="loadMo99Test" class="btn-validation" style="margin-top: 10px;">Load Mo-99 → Tc-99m Generator Test Case</button>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Reference: limitations list (kept) -->
+            <details class="usa-accordion" id="limitationsAccordion">
+                <summary class="usa-accordion__button">Model Scope & Limitations</summary>
+                <div id="limitationsList" class="limitations-list"></div>
+            </details>
+
+            <!-- Diagnostics (kept for sanity tests) -->
+            <details class="usa-accordion" id="diagnosticsAccordion">
+                <summary class="usa-accordion__button">Diagnostics</summary>
+                <div class="usa-card core-step">
+                    <button id="coreTestBtn" class="usa-button usa-button--outline">Run Core Sanity Test</button>
+                    <pre id="coreTestOut" class="usa-prose" style="margin-top: 1rem; padding: 1rem; background: #f0f0f0;"></pre>
+                </div>
+            </details>
+
+            <!-- MANUFACTURING ANALYSIS (Collapsible) -->
+            <details class="usa-accordion" id="manufacturingAccordion">
+                <summary class="usa-accordion__button">Manufacturing & Economics (Planning-Grade)</summary>
+                <div id="manufacturingPanel" class="usa-prose">
+                    <div class="usa-card core-step">
+                        <h3>Manufacturing Inputs</h3>
+                        <div class="grid-row grid-gap">
+                            <div class="grid-col-6">
+                                <label class="usa-label" for="facilityCapitalCost">Facility Capital Cost (USD)</label>
+                                <input class="usa-input" type="number" id="facilityCapitalCost" value="10000000" step="1000000" />
+                                
+                                <label class="usa-label" for="annualOperatingCost">Annual Operating Cost (USD)</label>
+                                <input class="usa-input" type="number" id="annualOperatingCost" value="2000000" step="100000" />
+                            </div>
+                            <div class="grid-col-6">
+                                <label class="usa-label" for="electricityCost">Electricity Cost (USD/kWh)</label>
+                                <input class="usa-input" type="number" id="electricityCost" value="0.10" step="0.01" />
+                                
+                                <label class="usa-label" for="sourceUptime">Source Uptime Fraction (0-1)</label>
+                                <input class="usa-input" type="number" id="sourceUptime" value="0.85" step="0.05" min="0" max="1" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="manufacturingResults" class="usa-card results-panel" style="margin-top: 2rem;">
+                        <h3>Manufacturing Results</h3>
+                        <div id="manufacturingResultsContent"></div>
+                    </div>
+
+                    <div class="chart-grid" style="margin-top: 2rem;">
+                        <div class="chart-container"><div id="chartCostBreakdown" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartElectricityConsumption" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartWasteStream" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartOperationsTimeline" class="chart"></div></div>
+                        <div class="chart-container"><div id="chartEngineeringConstraints" class="chart"></div></div>
+                    </div>
+                </div>
+            </details>
+        </main>
+
+        <!-- FOOTER — MODEL SCOPE -->
+        <footer class="usa-footer usa-footer--slim">
+            <p>
+                Planning-grade tool only. No neutron transport, CFD, licensing,
+                production guarantees, or economic optimization.
+            </p>
+        </footer>
+    </div>
+
+</body>
+</html>

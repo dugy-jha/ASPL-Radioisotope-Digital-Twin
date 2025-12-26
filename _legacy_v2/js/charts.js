@@ -10,11 +10,11 @@
  * - Only Plotly chart creation and update functions
  */
 
-const Charts = {
+export const Charts = {
     /**
      * Initialize all charts
      */
-    init: function() {
+    init: function () {
         this.initActivityChart('chartActivity');
         this.initReactionRateChart('chartReactionRate');
         this.initDecayChainChart('chartDecayChain');
@@ -30,7 +30,7 @@ const Charts = {
     /**
      * Common chart configuration
      */
-    getConfig: function() {
+    getConfig: function () {
         return {
             responsive: true,
             displayModeBar: true,
@@ -42,7 +42,7 @@ const Charts = {
     /**
      * Common layout template
      */
-    getLayout: function(title, xTitle, yTitle) {
+    getLayout: function (title, xTitle, yTitle) {
         return {
             title: {
                 text: title,
@@ -70,7 +70,7 @@ const Charts = {
     // CHART 1: Activity vs Irradiation Time
     // ============================================================================
 
-    initActivityChart: function(containerId) {
+    initActivityChart: function (containerId) {
         const data = [{
             x: [],
             y: [],
@@ -89,7 +89,7 @@ const Charts = {
         Plotly.newPlot(containerId, data, layout, this.getConfig());
     },
 
-    updateActivityChart: function(containerId, timeData, activityData) {
+    updateActivityChart: function (containerId, timeData, activityData) {
         const update = {
             x: [timeData],
             y: [activityData]
@@ -101,7 +101,7 @@ const Charts = {
     // CHART 2: Reaction Rate vs Flux / Beam Current
     // ============================================================================
 
-    initReactionRateChart: function(containerId) {
+    initReactionRateChart: function (containerId) {
         const data = [{
             x: [],
             y: [],
@@ -120,7 +120,7 @@ const Charts = {
         Plotly.newPlot(containerId, data, layout, this.getConfig());
     },
 
-    updateReactionRateChart: function(containerId, xData, yData, xLabel) {
+    updateReactionRateChart: function (containerId, xData, yData, xLabel) {
         const update = {
             x: [xData],
             y: [yData]
@@ -136,7 +136,7 @@ const Charts = {
     // CHART 3: Parent–Daughter Activity vs Time
     // ============================================================================
 
-    initDecayChainChart: function(containerId) {
+    initDecayChainChart: function (containerId) {
         const data = [
             {
                 x: [],
@@ -166,7 +166,7 @@ const Charts = {
         Plotly.newPlot(containerId, data, layout, this.getConfig());
     },
 
-    updateDecayChainChart: function(containerId, timeData, parentData, daughterData) {
+    updateDecayChainChart: function (containerId, timeData, parentData, daughterData) {
         const update = {
             x: [timeData, timeData],
             y: [parentData, daughterData]
@@ -178,7 +178,7 @@ const Charts = {
     // CHART 4: Temperature Rise vs Beam Power
     // ============================================================================
 
-    initTemperatureChart: function(containerId) {
+    initTemperatureChart: function (containerId) {
         const data = [{
             x: [],
             y: [],
@@ -197,7 +197,7 @@ const Charts = {
         Plotly.newPlot(containerId, data, layout, this.getConfig());
     },
 
-    updateTemperatureChart: function(containerId, powerData, tempData) {
+    updateTemperatureChart: function (containerId, powerData, tempData) {
         const update = {
             x: [powerData],
             y: [tempData]
@@ -209,7 +209,7 @@ const Charts = {
     // CHART 5: Damage Accumulation vs Time
     // ============================================================================
 
-    initDamageChart: function(containerId) {
+    initDamageChart: function (containerId) {
         const data = [{
             x: [],
             y: [],
@@ -228,7 +228,7 @@ const Charts = {
         Plotly.newPlot(containerId, data, layout, this.getConfig());
     },
 
-    updateDamageChart: function(containerId, timeData, dpaData) {
+    updateDamageChart: function (containerId, timeData, dpaData) {
         const update = {
             x: [timeData],
             y: [dpaData]
@@ -240,7 +240,7 @@ const Charts = {
     // CHART 6: Activity Loss Waterfall (EOB → Delivered)
     // ============================================================================
 
-    initWaterfallChart: function(containerId) {
+    initWaterfallChart: function (containerId) {
         const data = [{
             x: [],
             y: [],
@@ -271,7 +271,7 @@ const Charts = {
         Plotly.newPlot(containerId, data, layout, this.getConfig());
     },
 
-    updateWaterfallChart: function(containerId, stages, activities) {
+    updateWaterfallChart: function (containerId, stages, activities) {
         const update = {
             x: [stages],
             y: [activities]
@@ -283,7 +283,7 @@ const Charts = {
     // CHART 7: Delivered Activity vs Transport Time
     // ============================================================================
 
-    initTransportChart: function(containerId) {
+    initTransportChart: function (containerId) {
         const data = [{
             x: [],
             y: [],
@@ -302,7 +302,7 @@ const Charts = {
         Plotly.newPlot(containerId, data, layout, this.getConfig());
     },
 
-    updateTransportChart: function(containerId, timeData, activityData) {
+    updateTransportChart: function (containerId, timeData, activityData) {
         const update = {
             x: [timeData],
             y: [activityData]
@@ -314,7 +314,7 @@ const Charts = {
     // CHART 8: Yield Uncertainty Bands (±1σ, ±2σ)
     // ============================================================================
 
-    initUncertaintyChart: function(containerId) {
+    initUncertaintyChart: function (containerId) {
         const data = [
             {
                 x: [],
@@ -376,7 +376,7 @@ const Charts = {
         Plotly.newPlot(containerId, data, layout, this.getConfig());
     },
 
-    updateUncertaintyChart: function(containerId, timeData, meanData, sigma1Data, sigma2Data) {
+    updateUncertaintyChart: function (containerId, timeData, meanData, sigma1Data, sigma2Data) {
         const update = {
             x: [
                 timeData, // mean
@@ -403,7 +403,7 @@ const Charts = {
     /**
      * Initialize comparative activity vs time chart
      */
-    initComparativeActivityChart: function(containerId) {
+    initComparativeActivityChart: function (containerId) {
         const data = [];
 
         const layout = this.getLayout(
@@ -429,7 +429,7 @@ const Charts = {
     /**
      * Update comparative activity chart with multiple routes
      */
-    updateComparativeActivityChart: function(containerId, routesData) {
+    updateComparativeActivityChart: function (containerId, routesData) {
         const data = routesData.map((route, index) => {
             const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6'];
             const riskColors = {
@@ -437,7 +437,7 @@ const Charts = {
                 'Medium': '#f39c12',
                 'High': '#e74c3c'
             };
-            
+
             const lineColor = riskColors[route.impurity_risk] || colors[index % colors.length];
             const lineWidth = route.impurity_risk === 'High' ? 3 : route.impurity_risk === 'Medium' ? 2.5 : 2;
             const lineStyle = route.impurity_risk === 'High' ? 'dash' : 'solid';
@@ -448,8 +448,8 @@ const Charts = {
                 type: 'scatter',
                 mode: 'lines',
                 name: route.label,
-                line: { 
-                    color: lineColor, 
+                line: {
+                    color: lineColor,
                     width: lineWidth,
                     dash: lineStyle
                 },
@@ -484,7 +484,7 @@ const Charts = {
     /**
      * Initialize comparative specific activity vs flux chart
      */
-    initComparativeSpecificActivityChart: function(containerId) {
+    initComparativeSpecificActivityChart: function (containerId) {
         const data = [];
 
         const layout = this.getLayout(
@@ -512,7 +512,7 @@ const Charts = {
     /**
      * Update comparative specific activity chart with multiple routes
      */
-    updateComparativeSpecificActivityChart: function(containerId, routesData) {
+    updateComparativeSpecificActivityChart: function (containerId, routesData) {
         const data = routesData.map((route, index) => {
             const colors = ['#3498db', '#e74c3c', '#2ecc71', '#f39c12', '#9b59b6'];
             const riskColors = {
@@ -520,7 +520,7 @@ const Charts = {
                 'Medium': '#f39c12',
                 'High': '#e74c3c'
             };
-            
+
             const lineColor = riskColors[route.impurity_risk] || colors[index % colors.length];
             const lineWidth = route.impurity_risk === 'High' ? 3 : route.impurity_risk === 'Medium' ? 2.5 : 2;
             const lineStyle = route.impurity_risk === 'High' ? 'dash' : 'solid';
@@ -531,8 +531,8 @@ const Charts = {
                 type: 'scatter',
                 mode: 'lines',
                 name: route.label,
-                line: { 
-                    color: lineColor, 
+                line: {
+                    color: lineColor,
                     width: lineWidth,
                     dash: lineStyle
                 },
@@ -567,6 +567,4 @@ const Charts = {
     }
 };
 
-if (typeof window !== 'undefined') {
-    window.Charts = Charts;
-}
+

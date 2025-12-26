@@ -20,11 +20,11 @@ Any UI, routing, or scoring logic must treat this as read-only.
  * Authoritative formulas - DO NOT ALTER
  */
 
-const Model = {
+export const Model = {
     /**
      * Initialize model
      */
-    init: function() {
+    init: function () {
         // Model initialization (no DOM access)
     },
 
@@ -34,7 +34,7 @@ const Model = {
      * @param {string} isotopeString - Isotope string (e.g., 'Zn-67', 'Lu-176', 'Mo-100')
      * @returns {string} Element symbol (e.g., 'Zn', 'Lu', 'Mo')
      */
-    extractElementSymbol: function(isotopeString) {
+    extractElementSymbol: function (isotopeString) {
         if (!isotopeString || typeof isotopeString !== 'string') {
             return null;
         }
@@ -56,7 +56,7 @@ const Model = {
      * Formula: λ = ln(2) / (T_half_days * 24 * 3600)
      * Units: [s^-1] = [1] / ([days] * [s/day])
      */
-    decayConstant: function(T_half_days) {
+    decayConstant: function (T_half_days) {
         if (T_half_days <= 0) {
             throw new Error('Half-life must be positive');
         }
@@ -73,7 +73,7 @@ const Model = {
      * Formula: f_sat = 1 - exp(-λ * t_irr_seconds)
      * Units: [1] = 1 - exp(-[s^-1] * [s])
      */
-    saturationFactor: function(lambda, t_irr_seconds) {
+    saturationFactor: function (lambda, t_irr_seconds) {
         if (lambda < 0 || t_irr_seconds < 0) {
             throw new Error('Decay constant and time must be non-negative');
         }
@@ -92,7 +92,7 @@ const Model = {
      *          where λ_eff = λ_decay + k_burn_product
      * Units: [1] = 1 - exp(-[s^-1] * [s])
      */
-    saturationFactorWithProductBurnUp: function(lambda_decay, k_burn_product, t_irr_seconds) {
+    saturationFactorWithProductBurnUp: function (lambda_decay, k_burn_product, t_irr_seconds) {
         if (lambda_decay < 0 || k_burn_product < 0 || t_irr_seconds < 0) {
             throw new Error('Decay constant, burn-up rate, and time must be non-negative');
         }
@@ -112,7 +112,7 @@ const Model = {
      * Formula: R = N_parent * σ_cm2 * φ * f_shield
      * Units: [reactions/s] = [1] * [cm^2] * [cm^-2 s^-1] * [1]
      */
-    reactionRate: function(N_parent, sigma_cm2, phi, f_shield) {
+    reactionRate: function (N_parent, sigma_cm2, phi, f_shield) {
         if (N_parent < 0 || sigma_cm2 < 0 || phi < 0 || f_shield < 0) {
             throw new Error('All parameters must be non-negative');
         }
@@ -130,7 +130,7 @@ const Model = {
      * Formula: N_EOB = R * f_sat / λ
      * Units: [1] = [reactions/s] * [1] / [s^-1]
      */
-    atomsAtEOB: function(R, f_sat, lambda) {
+    atomsAtEOB: function (R, f_sat, lambda) {
         if (R < 0 || f_sat < 0 || f_sat > 1 || lambda <= 0) {
             throw new Error('Invalid parameters: R and f_sat must be non-negative, f_sat <= 1, lambda must be positive');
         }
@@ -147,7 +147,7 @@ const Model = {
      * Formula: A = λ * N
      * Units: [Bq] = [s^-1] * [1]
      */
-    activity: function(lambda, N) {
+    activity: function (lambda, N) {
         if (lambda < 0 || N < 0) {
             throw new Error('Decay constant and number of atoms must be non-negative');
         }
@@ -168,7 +168,7 @@ const Model = {
      * Formula: Ω = 2π * (1 - d / sqrt(d^2 + r^2))
      * Units: [sr] = [1] * [1]
      */
-    solidAngle: function(d, r) {
+    solidAngle: function (d, r) {
         if (d < 0 || r < 0) {
             throw new Error('Distance and radius must be non-negative');
         }
@@ -187,7 +187,7 @@ const Model = {
      * Formula: η = Ω / (4π)
      * Units: [1] = [sr] / [sr]
      */
-    geometricEfficiency: function(Omega) {
+    geometricEfficiency: function (Omega) {
         if (Omega < 0) {
             throw new Error('Solid angle must be non-negative');
         }
@@ -219,22 +219,50 @@ const Model = {
      * Warning: If targetDistance_cm and targetRadius_cm are provided and d < 3×r,
      *          emits console.warn about potential flux overestimation.
      */
-    fluxFromSolidAngle: function(S, Omega, A_target, targetDistance_cm, targetRadius_cm) {
+    fluxFromSolidAngle: function (S, Omega, A_target, targetDistance_cm, targetRadius_cm) {
         if (S < 0 || Omega < 0 || A_target <= 0) {
             throw new Error('Source rate and solid angle must be non-negative, target area must be positive');
         }
-        
+
         // Warning: Flux modeling may be inaccurate for close-in targets
-        if (targetDistance_cm !== undefined && targetRadius_cm !== undefined && 
-            targetDistance_cm >= 0 && targetRadius_cm > 0 && 
+        if (targetDistance_cm !== undefined && targetRadius_cm !== undefined &&
+            targetDistance_cm >= 0 && targetRadius_cm > 0 &&
             targetDistance_cm < 3 * targetRadius_cm) {
             if (typeof console !== 'undefined' && console.warn) {
                 console.warn(`Flux modeling warning: target distance < 3× target radius. ` +
-                           `Point-source / solid-angle approximation may overestimate flux by 10–50%.`);
+                    `Point-source / solid-angle approximation may overestimate flux by 10–50%.`);
             }
         }
-        
+
         return (S * Omega) / A_target;
+    },
+
+    /**
+     * Calculate flux from finite disk source (Approximation)
+     * 
+     * @param {number} S - Source rate (particles/s)
+     * @param {number} targetDistance_cm - Distance (cm)
+     * @param {number} targetRadius_cm - Target radius (cm)
+     * @param {number} sourceRadius_cm - Source radius (cm)
+     * @returns {number} Flux φ (cm^-2 s^-1)
+     * 
+     * Formula: Uses off-axis disk-to-disk view factor approximation or simplified effective distance
+     * Current impl: Averages point-source flux over distributed source area (Geometric approximation)
+     */
+    fluxFiniteSource: function (S, targetDistance_cm, targetRadius_cm, sourceRadius_cm) {
+        if (targetDistance_cm <= 0) return 0;
+
+        // If source is small, use standard solid angle
+        if (sourceRadius_cm <= 0.1 * targetDistance_cm) {
+            const Omega = this.solidAngle(targetDistance_cm, targetRadius_cm);
+            return (S * Omega) / (Math.PI * targetRadius_cm * targetRadius_cm);
+        }
+
+        // For larger sources, use effective distance approximation
+        // d_eff = sqrt(d^2 + r_source^2/2) - heuristic for average distance
+        const d_eff = Math.sqrt(targetDistance_cm * targetDistance_cm + 0.5 * sourceRadius_cm * sourceRadius_cm);
+        const Omega_eff = this.solidAngle(d_eff, targetRadius_cm);
+        return (S * Omega_eff) / (Math.PI * targetRadius_cm * targetRadius_cm);
     },
 
     /**
@@ -249,7 +277,7 @@ const Model = {
      * @param {number} M - Multiplication factor (dimensionless)
      * @returns {number} Effective source rate S_eff (particles/s)
      */
-    effectiveSourceRate: function(S, eta, f_ang, M) {
+    effectiveSourceRate: function (S, eta, f_ang, M) {
         if (S < 0 || eta < 0 || f_ang < 0 || M < 0) {
             throw new Error('All parameters must be non-negative');
         }
@@ -267,7 +295,7 @@ const Model = {
      * @param {number} A_target - Target area (cm^2)
      * @returns {number} Flux φ (cm^-2 s^-1)
      */
-    flux: function(S_eff, A_target) {
+    flux: function (S_eff, A_target) {
         if (S_eff < 0 || A_target <= 0) {
             throw new Error('Source rate must be non-negative, target area must be positive');
         }
@@ -288,7 +316,7 @@ const Model = {
      * Formula: Σ = N_parent_density * σ_cm2
      * Units: [cm^-1] = [atoms/cm^3] * [cm^2]
      */
-    macroscopicCrossSection: function(N_parent_density, sigma_cm2) {
+    macroscopicCrossSection: function (N_parent_density, sigma_cm2) {
         if (N_parent_density < 0 || sigma_cm2 < 0) {
             throw new Error('Density and cross-section must be non-negative');
         }
@@ -305,7 +333,7 @@ const Model = {
      * Formula: f_shield = (1 - exp(-Σ * thickness)) / (Σ * thickness)
      * Units: [1] = [1] / ([cm^-1] * [cm])
      */
-    selfShieldingFactor: function(Sigma, thickness) {
+    selfShieldingFactor: function (Sigma, thickness) {
         if (Sigma < 0 || thickness < 0) {
             throw new Error('Cross-section and thickness must be non-negative');
         }
@@ -330,7 +358,7 @@ const Model = {
      * Formula: k_burn = φ * σ_burn_cm2
      * Units: [s^-1] = [cm^-2 s^-1] * [cm^2]
      */
-    burnUpRateConstant: function(phi, sigma_burn_cm2) {
+    burnUpRateConstant: function (phi, sigma_burn_cm2) {
         if (phi < 0 || sigma_burn_cm2 < 0) {
             throw new Error('Flux and cross-section must be non-negative');
         }
@@ -347,7 +375,7 @@ const Model = {
      * Formula: λ_eff = λ + k_burn
      * Units: [s^-1] = [s^-1] + [s^-1]
      */
-    effectiveDecayConstant: function(lambda, k_burn) {
+    effectiveDecayConstant: function (lambda, k_burn) {
         if (lambda < 0 || k_burn < 0) {
             throw new Error('Decay constant and burn-up rate must be non-negative');
         }
@@ -367,7 +395,7 @@ const Model = {
      * Note: This accounts for activation of the product isotope during irradiation.
      *       For high-flux, long-irradiation cases, product burn-up can reduce yield by 10-50%.
      */
-    productBurnUpRateConstant: function(phi, sigma_burn_product_cm2) {
+    productBurnUpRateConstant: function (phi, sigma_burn_product_cm2) {
         if (phi < 0 || sigma_burn_product_cm2 < 0) {
             throw new Error('Flux and cross-section must be non-negative');
         }
@@ -392,22 +420,22 @@ const Model = {
      * 
      * Returns 0 if sigma_product_burn_cm2 is undefined, null, or <= 0.
      */
-    productBurnUpRate: function(flux_cm2_s, sigma_product_burn_cm2, product_atom_density_cm3, target_thickness_cm) {
+    productBurnUpRate: function (flux_cm2_s, sigma_product_burn_cm2, product_atom_density_cm3, target_thickness_cm) {
         // Return 0 if cross-section is not provided or invalid
         if (sigma_product_burn_cm2 === undefined || sigma_product_burn_cm2 === null || sigma_product_burn_cm2 <= 0) {
             return 0;
         }
-        
+
         if (flux_cm2_s < 0 || product_atom_density_cm3 < 0 || target_thickness_cm < 0) {
             throw new Error('Flux, product atom density, and target thickness must be non-negative');
         }
-        
+
         // Compute macroscopic cross-section
         const Sigma_product = this.macroscopicCrossSection(product_atom_density_cm3, sigma_product_burn_cm2);
-        
+
         // Compute self-shielding factor
         const f_shield_product = this.selfShieldingFactor(Sigma_product, target_thickness_cm);
-        
+
         // Return product burn-up rate constant with self-shielding
         return flux_cm2_s * sigma_product_burn_cm2 * f_shield_product;
     },
@@ -425,7 +453,7 @@ const Model = {
      * Note: Product burn-up reduces effective half-life, increasing saturation rate
      *       but also increasing depletion rate.
      */
-    effectiveDecayConstantWithProductBurnUp: function(lambda_decay, k_burn_product) {
+    effectiveDecayConstantWithProductBurnUp: function (lambda_decay, k_burn_product) {
         if (lambda_decay < 0 || k_burn_product < 0) {
             throw new Error('Decay constant and burn-up rate must be non-negative');
         }
@@ -445,7 +473,7 @@ const Model = {
      *          where λ_eff = λ_decay + k_burn_product
      * Units: [1] = [reactions/s] * [1] / [s^-1]
      */
-    atomsAtEOBWithProductBurnUp: function(R, lambda_decay, k_burn_product, t_irr) {
+    atomsAtEOBWithProductBurnUp: function (R, lambda_decay, k_burn_product, t_irr) {
         if (R < 0 || lambda_decay < 0 || k_burn_product < 0 || t_irr < 0) {
             throw new Error('All parameters must be non-negative');
         }
@@ -474,7 +502,7 @@ const Model = {
      * Formula: N_daughter(t) = N_parent * BR * (λ_parent / (λ_d - λ_p)) * (exp(-λ_p * t) - exp(-λ_d * t))
      * Units: [1] = [1] * [1] * [s^-1] / [s^-1] * [1]
      */
-    batemanOneStep: function(N_parent, BR, lambda_parent, lambda_daughter, t) {
+    batemanOneStep: function (N_parent, BR, lambda_parent, lambda_daughter, t) {
         if (N_parent < 0 || BR < 0 || BR > 1 || lambda_parent < 0 || lambda_daughter < 0 || t < 0) {
             throw new Error('Invalid parameters');
         }
@@ -508,7 +536,7 @@ const Model = {
      * Note: For numerical stability, uses recursive Bateman solution for small chains (n ≤ 4),
      *       matrix exponential for larger chains (n > 4).
      */
-    batemanMultiStep: function(N0, decayMatrix, t) {
+    batemanMultiStep: function (N0, decayMatrix, t) {
         if (!Array.isArray(N0) || !Array.isArray(decayMatrix)) {
             throw new Error('N0 and decayMatrix must be arrays');
         }
@@ -539,7 +567,7 @@ const Model = {
      * @param {number} t - Time (s)
      * @returns {Array<number>} Atom numbers at time t
      */
-    batemanRecursive: function(N0, decayMatrix, t) {
+    batemanRecursive: function (N0, decayMatrix, t) {
         const n = N0.length;
         const N = new Array(n).fill(0);
 
@@ -572,7 +600,7 @@ const Model = {
             if (sumBR > 1.0001) {
                 if (typeof console !== 'undefined' && console.warn) {
                     console.warn(`WARNING: Isotope ${j} has total branching ratio sum = ${sumBR.toFixed(6)} > 1.0. ` +
-                                `This violates conservation (sum of BRs should be ≤ 1.0).`);
+                        `This violates conservation (sum of BRs should be ≤ 1.0).`);
                 }
             }
         }
@@ -603,7 +631,7 @@ const Model = {
             for (let j = 0; j < n; j++) {
                 // Skip self (j === i) - isotope cannot be its own parent
                 if (j === i) continue;
-                
+
                 // Only consider parents that actually decay to isotope i
                 if (branchingRatios[i][j] > 0 && lambdas[j] > 0) {
                     const BR = branchingRatios[i][j];
@@ -642,9 +670,9 @@ const Model = {
      *       Not suitable for stiff systems without timestep refinement.
      *       Numerical stability guard ensures λ_max × dt ≤ 0.2.
      */
-    batemanMatrixExponential: function(N0, decayMatrix, t) {
+    batemanMatrixExponential: function (N0, decayMatrix, t) {
         const n = N0.length;
-        
+
         // Find maximum decay constant for stability check
         let lambda_max = 0;
         for (let i = 0; i < n; i++) {
@@ -653,10 +681,10 @@ const Model = {
                 lambda_max = lambda_i;
             }
         }
-        
+
         // Initial adaptive time step
         let dt = Math.min(t / 1000, 0.1);
-        
+
         // Numerical stability guard: ensure λ_max × dt ≤ 0.2
         // For stiff systems (large decay constant differences), reduce timestep
         const STABILITY_THRESHOLD = 0.2;
@@ -665,10 +693,10 @@ const Model = {
             dt = STABILITY_THRESHOLD / lambda_max;
             if (typeof console !== 'undefined' && console.warn) {
                 console.warn(`Matrix exponential stability guard: Reduced timestep from ${original_dt.toExponential(2)} s to ${dt.toExponential(2)} s ` +
-                            `(λ_max = ${lambda_max.toExponential(2)} s⁻¹, λ_max × dt = ${(lambda_max * dt).toFixed(3)})`);
+                    `(λ_max = ${lambda_max.toExponential(2)} s⁻¹, λ_max × dt = ${(lambda_max * dt).toFixed(3)})`);
             }
         }
-        
+
         const steps = Math.ceil(t / dt);
         const final_dt = t - (steps - 1) * dt;
 
@@ -697,13 +725,80 @@ const Model = {
     },
 
     /**
+     * Runge-Kutta (RK4) method for decay chains
+     * Higher accuracy for stiff systems than Euler
+     * 
+     * @param {Array<number>} N0 - Initial atom numbers
+     * @param {Array<Array<number>>} decayMatrix - Decay matrix
+     * @param {number} t - Time (s)
+     * @returns {Array<number>} Atom numbers at time t
+     */
+    batemanRungeKutta: function (N0, decayMatrix, t) {
+        const n = N0.length;
+        let N = [...N0];
+
+        // Time step calculation similar to matrix exponential but usually can be larger for RK4
+        // For physics accuracy, we keep it conservative
+        let lambda_max = 0;
+        for (let i = 0; i < n; i++) {
+            if (-decayMatrix[i][i] > lambda_max) lambda_max = -decayMatrix[i][i];
+        }
+
+        // Stability: limit h such that lambda_max * h < ~2.7 for RK4 stability region
+        // We use 0.5 for high accuracy
+        let dt = Math.min(t / 100, 0.5 / (lambda_max || 1e-10));
+        // Clamp dt if testing very short times
+        if (dt > t) dt = t;
+
+        const steps = Math.ceil(t / dt);
+        const final_dt = t - (steps - 1) * dt;
+
+        // Helper: compute dN/dt = M * N
+        const deriv = (currentN) => {
+            const dN = new Array(n).fill(0);
+            for (let i = 0; i < n; i++) {
+                for (let j = 0; j < n; j++) {
+                    dN[i] += decayMatrix[i][j] * currentN[j];
+                }
+            }
+            return dN;
+        };
+
+        for (let step = 0; step < steps; step++) {
+            const h = (step === steps - 1) ? final_dt : dt;
+
+            // k1 = f(t, y)
+            const k1 = deriv(N);
+
+            // k2 = f(t + h/2, y + h*k1/2)
+            const N2 = N.map((val, i) => val + 0.5 * h * k1[i]);
+            const k2 = deriv(N2);
+
+            // k3 = f(t + h/2, y + h*k2/2)
+            const N3 = N.map((val, i) => val + 0.5 * h * k2[i]);
+            const k3 = deriv(N3);
+
+            // k4 = f(t + h, y + h*k3)
+            const N4 = N.map((val, i) => val + h * k3[i]);
+            const k4 = deriv(N4);
+
+            // Update
+            for (let i = 0; i < n; i++) {
+                N[i] += (h / 6.0) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]);
+                if (N[i] < 0) N[i] = 0;
+            }
+        }
+        return N;
+    },
+
+    /**
      * Build decay matrix from chain definition
      * 
      * @param {Array<Object>} chain - Chain definition
      *   Each element: {isotope: string, lambda: number, parents: [{isotope: string, BR: number}]}
      * @returns {Object} {decayMatrix: Array<Array<number>>, isotopeOrder: Array<string>}
      */
-    buildDecayMatrix: function(chain) {
+    buildDecayMatrix: function (chain) {
         const n = chain.length;
         const decayMatrix = [];
         const isotopeOrder = chain.map(c => c.isotope);
@@ -716,7 +811,7 @@ const Model = {
         // Fill matrix
         for (let i = 0; i < n; i++) {
             const isotope = chain[i];
-            
+
             // Diagonal: negative decay constant
             decayMatrix[i][i] = -isotope.lambda;
 
@@ -751,7 +846,7 @@ const Model = {
      * Note: q in elementary charge units, I in amperes
      * Conversion: 1 A = 6.241509074e18 elementary charges/s
      */
-    particleRate: function(I, q) {
+    particleRate: function (I, q) {
         if (I < 0 || q <= 0) {
             throw new Error('Current must be non-negative, charge must be positive');
         }
@@ -770,7 +865,7 @@ const Model = {
      * Units: [W] = [particles/s] * [MeV] * [J/MeV]
      * Note: 1 MeV = 1.602176634e-13 J
      */
-    beamPower: function(N_dot, E_MeV) {
+    beamPower: function (N_dot, E_MeV) {
         if (N_dot < 0 || E_MeV < 0) {
             throw new Error('Particle rate and energy must be non-negative');
         }
@@ -792,7 +887,7 @@ const Model = {
      * Formula: ΔT = P / (ṁ * Cp)
      * Units: [K] = [W] / ([kg/s] * [J/(kg·K)])
      */
-    temperatureRise: function(P, m_dot, Cp) {
+    temperatureRise: function (P, m_dot, Cp) {
         if (P < 0 || m_dot <= 0 || Cp <= 0) {
             throw new Error('Power must be non-negative, mass flow rate and heat capacity must be positive');
         }
@@ -809,7 +904,7 @@ const Model = {
      * Formula: f_T = 1 if ΔT <= ΔT_max else ΔT_max / ΔT
      * Units: [1] = [1]
      */
-    thermalDerating: function(deltaT, deltaT_max) {
+    thermalDerating: function (deltaT, deltaT_max) {
         if (deltaT < 0 || deltaT_max <= 0) {
             throw new Error('Temperature rise must be non-negative, maximum temperature rise must be positive');
         }
@@ -833,7 +928,7 @@ const Model = {
      * Formula: t_damage = dpa_limit / dpa_rate
      * Units: [s] = [1] / [s^-1]
      */
-    damageTimeLimit: function(dpa_limit, dpa_rate) {
+    damageTimeLimit: function (dpa_limit, dpa_rate) {
         if (dpa_limit < 0 || dpa_rate <= 0) {
             throw new Error('DPA limit must be non-negative, DPA rate must be positive');
         }
@@ -850,7 +945,7 @@ const Model = {
      * Formula: f_D = 1 if t_irr_seconds <= t_damage else t_damage / t_irr_seconds
      * Units: [1] = [1]
      */
-    damageDerating: function(t_irr_seconds, t_damage) {
+    damageDerating: function (t_irr_seconds, t_damage) {
         if (t_irr_seconds < 0 || t_damage <= 0) {
             throw new Error('Irradiation time must be non-negative, damage time limit must be positive');
         }
@@ -873,7 +968,7 @@ const Model = {
      * Formula: σ_total = sqrt(σ_flux^2 + σ_sigma^2 + σ_geom^2 + σ_chem^2 + ...)
      * Units: Output has same units as input uncertainties
      */
-    uncertaintyRSS: function(uncertainties) {
+    uncertaintyRSS: function (uncertainties) {
         if (!Array.isArray(uncertainties) || uncertainties.length === 0) {
             throw new Error('Uncertainties must be a non-empty array');
         }
@@ -910,36 +1005,36 @@ const Model = {
      * Note: Energy scaling is planning-grade and optional. Default conservative step-function
      * is maintained for backward compatibility.
      */
-    thresholdActivation: function(neutronEnergy, thresholdEnergy, crossSectionAtEnergy, options) {
+    thresholdActivation: function (neutronEnergy, thresholdEnergy, crossSectionAtEnergy, options) {
         options = options || {};
         const useEnergyScaling = options.useEnergyScaling || false;
         const reactionType = options.reactionType || 'n,p';
-        
+
         if (neutronEnergy < thresholdEnergy) {
             return 0;
         }
-        
+
         // Default: conservative step-function (backward compatible)
         if (!useEnergyScaling) {
             return crossSectionAtEnergy;
         }
-        
+
         // Optional: energy-dependent scaling (planning-grade)
         // Scaling exponent: n = 1.5 for (n,p), n = 2.0 for (n,2n)
         const scalingExponent = reactionType === 'n,2n' ? 2.0 : 1.5;
         const referenceEnergy = 14.1; // MeV (cross-section reference energy)
-        
+
         if (neutronEnergy >= referenceEnergy) {
             // Above reference energy: use cross-section as-is (may decrease for n,2n but not modeled)
             return crossSectionAtEnergy;
         }
-        
+
         // Between threshold and reference: scale with energy
         const energyRatio = (neutronEnergy - thresholdEnergy) / (referenceEnergy - thresholdEnergy);
         if (energyRatio <= 0) {
             return 0;
         }
-        
+
         const scaledCrossSection = crossSectionAtEnergy * Math.pow(energyRatio, scalingExponent);
         return scaledCrossSection;
     },
@@ -954,7 +1049,7 @@ const Model = {
      * Formula: SA = A / m
      * Units: [Bq/g] = [Bq] / [g]
      */
-    specificActivity: function(activity, mass) {
+    specificActivity: function (activity, mass) {
         if (mass <= 0) {
             throw new Error('Mass must be positive');
         }
@@ -975,7 +1070,7 @@ const Model = {
      * @param {number} conditions.selfShieldingFactor - Self-shielding factor (default 1.0)
      * @returns {Object} Evaluation results
      */
-    evaluateRoute: function(route, conditions) {
+    evaluateRoute: function (route, conditions) {
         if (!route || !conditions) {
             throw new Error('Route and conditions must be provided');
         }
@@ -1001,15 +1096,15 @@ const Model = {
             }
             sigma = cs * 1e-24; // Convert barns to cm²
             effectiveFlux = conditions.neutronFlux || 1e14; // cm^-2 s^-1
-            
+
             // Calculate number of target atoms
             // Atomic masses are planning-grade values sourced from standard atomic weights; not isotopic mass excess.
             const N_AVOGADRO = 6.02214076e23; // atoms/mol
             const targetElement = this.extractElementSymbol(route.target_isotope);
-            const atomicMass = typeof AtomicMasses !== 'undefined' ? 
+            const atomicMass = typeof AtomicMasses !== 'undefined' ?
                 AtomicMasses.getAtomicMass(targetElement) : 100.0; // Fallback if module not loaded
             const N_target = (targetMass * N_AVOGADRO * enrichment) / atomicMass;
-            
+
             reactionRate = this.reactionRate(N_target, sigma, effectiveFlux, f_shield);
         } else if (reaction === 'n,p' || reaction === 'n,2n' || reaction === 'n,d') {
             // Threshold reaction
@@ -1020,11 +1115,11 @@ const Model = {
             if (!cs_14) {
                 throw new Error('Cross-section at 14.1 MeV not defined for threshold reaction');
             }
-            
+
             // Convert mb to cm² (1 mb = 1e-27 cm²)
             // Note: nominal_sigma_barns is in barns (1e-24), cross_section_14_1_MeV is in mb (1e-27)
             const sigma_14_1_MeV = route.cross_section_14_1_MeV ? route.cross_section_14_1_MeV * 1e-27 : route.nominal_sigma_barns * 1e-24;
-            
+
             // Apply threshold activation
             const threshold = route.threshold_energy !== undefined ? route.threshold_energy : (route.threshold_MeV !== undefined ? route.threshold_MeV : 0);
             sigma = this.thresholdActivation(
@@ -1032,18 +1127,18 @@ const Model = {
                 threshold,
                 sigma_14_1_MeV / 1e-27 // thresholdActivation expects mb
             ) * 1e-27;
-            
+
             // For threshold reactions, assume fast neutron flux
             effectiveFlux = conditions.neutronFlux || 1e13; // cm^-2 s^-1 (typically lower than thermal)
-            
+
             // Calculate number of target atoms
             // Atomic masses are planning-grade values sourced from standard atomic weights; not isotopic mass excess.
             const N_AVOGADRO = 6.02214076e23; // atoms/mol
             const targetElement = this.extractElementSymbol(route.target_isotope);
-            const atomicMass = typeof AtomicMasses !== 'undefined' ? 
+            const atomicMass = typeof AtomicMasses !== 'undefined' ?
                 AtomicMasses.getAtomicMass(targetElement) : 100.0; // Fallback if module not loaded
             const N_target = (targetMass * N_AVOGADRO * enrichment) / atomicMass;
-            
+
             reactionRate = this.reactionRate(N_target, sigma, effectiveFlux, f_shield);
         } else if (reaction === 'alpha') {
             // Alpha particle reaction (charged particle beam)
@@ -1052,17 +1147,17 @@ const Model = {
             // For now, use placeholder reaction rate
             const PLACEHOLDER_ALPHA_CROSS_SECTION = 1e-26; // cm² (placeholder)
             const PLACEHOLDER_ALPHA_FLUX = 1e10; // particles/cm²/s (placeholder)
-            
+
             sigma = PLACEHOLDER_ALPHA_CROSS_SECTION;
             effectiveFlux = PLACEHOLDER_ALPHA_FLUX;
-            
+
             // Atomic masses are planning-grade values sourced from standard atomic weights; not isotopic mass excess.
             const N_AVOGADRO = 6.02214076e23; // atoms/mol
             const targetElement = this.extractElementSymbol(route.target_isotope);
-            const atomicMass = typeof AtomicMasses !== 'undefined' ? 
+            const atomicMass = typeof AtomicMasses !== 'undefined' ?
                 AtomicMasses.getAtomicMass(targetElement) : 100.0; // Fallback if module not loaded
             const N_target = (targetMass * N_AVOGADRO * enrichment) / atomicMass;
-            
+
             reactionRate = this.reactionRate(N_target, sigma, effectiveFlux, f_shield);
         } else {
             throw new Error(`Unknown reaction type: ${route.reaction_type}`);
@@ -1078,7 +1173,7 @@ const Model = {
         // Atomic masses are planning-grade values sourced from standard atomic weights; not isotopic mass excess.
         const ATOMIC_MASS_UNIT_g = 1.66053906660e-24; // g
         const productElement = this.extractElementSymbol(route.product_isotope);
-        const productAtomicMass = typeof AtomicMasses !== 'undefined' ? 
+        const productAtomicMass = typeof AtomicMasses !== 'undefined' ?
             AtomicMasses.getAtomicMass(productElement) : 100.0; // Fallback if module not loaded
         const productMass = N_product * productAtomicMass * ATOMIC_MASS_UNIT_g;
         const specificActivity = this.specificActivity(activity, Math.max(productMass, 1e-9));
@@ -1122,7 +1217,7 @@ const Model = {
      * @param {number} irradiationTime - Irradiation time (s)
      * @returns {string} Risk level: 'low', 'moderate', 'high'
      */
-    assessImpurityRisk: function(route, reactionRate, irradiationTime) {
+    assessImpurityRisk: function (route, reactionRate, irradiationTime) {
         // Simple heuristic based on route characteristics
         let riskScore = 0;
 
@@ -1167,7 +1262,7 @@ const Model = {
      * @param {Object} route - Route object
      * @returns {Array<Object>} Array of impurity trap warnings {type: string, severity: string, message: string}
      */
-    assessImpurityTraps: function(route) {
+    assessImpurityTraps: function (route) {
         const traps = [];
         const productHalfLife = route.product_half_life_days;
 
@@ -1196,7 +1291,7 @@ const Model = {
         route.known_impurity_risks.forEach(impurity => {
             // Check for long-lived impurities (half-life >> product half-life)
             const isLongLived = longLivedPatterns.some(pattern => pattern.test(impurity));
-            
+
             if (isLongLived && productHalfLife < 10) {
                 // Product half-life < 10 days and impurity is long-lived
                 traps.push({
@@ -1248,7 +1343,7 @@ const Model = {
      * @param {string} impurityRiskLevel - Impurity risk level
      * @returns {Object} {classification: string, reasons: string[]}
      */
-    classifyRouteFeasibility: function(route, reactionRate, activity, specificActivity, impurityRiskLevel) {
+    classifyRouteFeasibility: function (route, reactionRate, activity, specificActivity, impurityRiskLevel) {
         const reasons = [];
         let classification = 'Feasible';
 
@@ -1314,6 +1409,19 @@ const Model = {
             reasons: reasons
         };
     }
+    /**
+     * Calculate delivered activity accounting for chemistry yield
+     * 
+     * @param {number} activity - Activity after decay and transport (Bq)
+     * @param {number} yieldFraction - Chemistry yield (0.0 - 1.0)
+     * @returns {number} Delivered activity (Bq)
+     */
+    deliveredActivityWithChemistryYield: function (activity, yieldFraction) {
+        if (activity < 0 || yieldFraction < 0) {
+            return 0;
+        }
+        return activity * yieldFraction;
+    }
 };
 
 // Initialize model when script loads
@@ -1323,9 +1431,9 @@ Model.init();
 // MODEL SELF-TEST
 // ============================================================================
 export function modelSelfTest() {
-  const lambda = Math.log(2) / (1 * 24 * 3600);
-  const R = 1e9;
-  const t = 1 * 24 * 3600;
-  const f = 1 - Math.exp(-lambda * t);
-  return R * f / lambda;
+    const lambda = Math.log(2) / (1 * 24 * 3600);
+    const R = 1e9;
+    const t = 1 * 24 * 3600;
+    const f = 1 - Math.exp(-lambda * t);
+    return R * f / lambda;
 }

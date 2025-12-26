@@ -31,10 +31,10 @@ function lookupPathway(route) {
     if (!route || !route.product_isotope) {
         return null;
     }
-    
+
     // Try to access ISOTOPE_PATHWAYS (may be in different module or loaded globally)
     let pathways = null;
-    
+
     // Try global variable (if loaded via script tag)
     if (typeof ISOTOPE_PATHWAYS !== 'undefined' && Array.isArray(ISOTOPE_PATHWAYS)) {
         pathways = ISOTOPE_PATHWAYS;
@@ -43,20 +43,20 @@ function lookupPathway(route) {
     else if (typeof window !== 'undefined' && window.ISOTOPE_PATHWAYS && Array.isArray(window.ISOTOPE_PATHWAYS)) {
         pathways = window.ISOTOPE_PATHWAYS;
     }
-    
+
     if (!pathways || !Array.isArray(pathways)) {
         return null;
     }
-    
+
     // Lookup by product isotope (primary match)
-    const productMatch = pathways.find(p => 
+    const productMatch = pathways.find(p =>
         p.primary_product === route.product_isotope
     );
-    
+
     if (productMatch) {
         return productMatch;
     }
-    
+
     // Lookup by route ID (secondary match) - normalize route ID format
     const routeIdNormalized = route.id ? route.id.toUpperCase().replace(/-/g, '_') : null;
     if (routeIdNormalized) {
@@ -65,11 +65,11 @@ function lookupPathway(route) {
             return idMatch;
         }
     }
-    
+
     // Lookup by target and product combination (tertiary match)
     if (route.target_isotope && route.product_isotope) {
-        const targetProductMatch = pathways.find(p => 
-            p.production && 
+        const targetProductMatch = pathways.find(p =>
+            p.production &&
             p.production.target === route.target_isotope &&
             p.primary_product === route.product_isotope
         );
@@ -77,18 +77,23 @@ function lookupPathway(route) {
             return targetProductMatch;
         }
     }
-    
+
     return null;
 }
 
-const RouteEvaluator = {
+
+
+import { Model } from './model.js';
+import { NuclearData } from './data/nuclearData.js';
+
+export const RouteEvaluator = {
     /**
      * Extract element symbol from isotope string
      * 
      * @param {string} isotopeString - Isotope string (e.g., 'Zn-67', 'Lu-176', 'Mo-100')
      * @returns {string} Element symbol (e.g., 'Zn', 'Lu', 'Mo')
      */
-    extractElementSymbol: function(isotopeString) {
+    extractElementSymbol: function (isotopeString) {
         if (!isotopeString || typeof isotopeString !== 'string') {
             return null;
         }
@@ -104,105 +109,8 @@ const RouteEvaluator = {
      * @param {number} massNumber - Mass number (e.g., 64, 67)
      * @returns {number|null} Natural isotopic abundance (fraction 0-1), or null if unknown
      */
-    getIsotopicAbundance: function(elementSymbol, massNumber) {
-        // Natural isotopic abundances (fractions) - planning-grade values
-        // Source: NIST Standard Reference Database 144 (2023)
-        const isotopicAbundances = {
-            'Zn': {
-                64: 0.492,   // Zn-64: 49.2%
-                66: 0.278,   // Zn-66: 27.8%
-                67: 0.041,   // Zn-67: 4.1%
-                68: 0.188    // Zn-68: 18.8%
-            },
-            'Ti': {
-                46: 0.0825,  // Ti-46: 8.25%
-                47: 0.0744,  // Ti-47: 7.44%
-                48: 0.7372,  // Ti-48: 73.72%
-                49: 0.0541,  // Ti-49: 5.41%
-                50: 0.0518   // Ti-50: 5.18%
-            },
-            'Mo': {
-                92: 0.1484,  // Mo-92: 14.84%
-                94: 0.0925,  // Mo-94: 9.25%
-                95: 0.1592,  // Mo-95: 15.92%
-                96: 0.1668,  // Mo-96: 16.68%
-                97: 0.0955,  // Mo-97: 9.55%
-                98: 0.2413,  // Mo-98: 24.13%
-                100: 0.0963  // Mo-100: 9.63%
-            },
-            'Lu': {
-                175: 0.9741, // Lu-175: 97.41%
-                176: 0.0259  // Lu-176: 2.59%
-            },
-            'Ho': {
-                165: 1.0     // Ho-165: 100% (only stable isotope)
-            },
-            'Sm': {
-                144: 0.0307, // Sm-144: 3.07%
-                147: 0.1499, // Sm-147: 14.99%
-                148: 0.1124, // Sm-148: 11.24%
-                149: 0.1382, // Sm-149: 13.82%
-                150: 0.0738, // Sm-150: 7.38%
-                152: 0.2675, // Sm-152: 26.75%
-                154: 0.2275  // Sm-154: 22.75%
-            },
-            'Dy': {
-                156: 0.0006, // Dy-156: 0.06%
-                158: 0.0010, // Dy-158: 0.10%
-                160: 0.0234, // Dy-160: 2.34%
-                161: 0.1889, // Dy-161: 18.89%
-                162: 0.2548, // Dy-162: 25.48%
-                163: 0.2486, // Dy-163: 24.86%
-                164: 0.2826  // Dy-164: 28.26%
-            },
-            'Re': {
-                185: 0.3740, // Re-185: 37.40%
-                187: 0.6260  // Re-187: 62.60%
-            },
-            'Au': {
-                197: 1.0     // Au-197: 100% (only stable isotope)
-            },
-            'W': {
-                180: 0.0012, // W-180: 0.12%
-                182: 0.2650, // W-182: 26.50%
-                183: 0.1431, // W-183: 14.31%
-                184: 0.3064, // W-184: 30.64%
-                186: 0.2843  // W-186: 28.43%
-            },
-            'Sn': {
-                112: 0.0097, // Sn-112: 0.97%
-                114: 0.0066, // Sn-114: 0.66%
-                115: 0.0034, // Sn-115: 0.34%
-                116: 0.1454, // Sn-116: 14.54%
-                117: 0.0768, // Sn-117: 7.68%
-                118: 0.2422, // Sn-118: 24.22%
-                119: 0.0859, // Sn-119: 8.59%
-                120: 0.3259, // Sn-120: 32.59%
-                122: 0.0463, // Sn-122: 4.63%
-                124: 0.0579  // Sn-124: 5.79%
-            },
-            'Ir': {
-                191: 0.373,  // Ir-191: 37.3%
-                193: 0.627   // Ir-193: 62.7%
-            },
-            'Co': {
-                59: 1.0      // Co-59: 100% (only stable isotope)
-            },
-            'Cu': {
-                63: 0.6915,  // Cu-63: 69.15%
-                65: 0.3085   // Cu-65: 30.85%
-            },
-            'Sc': {
-                45: 1.0      // Sc-45: 100% (only stable isotope)
-            }
-        };
-
-        if (!isotopicAbundances[elementSymbol]) {
-            return null;
-        }
-
-        const abundances = isotopicAbundances[elementSymbol];
-        return abundances[massNumber] !== undefined ? abundances[massNumber] : null;
+    getIsotopicAbundance: function (elementSymbol, massNumber) {
+        return NuclearData.getIsotopicAbundance(elementSymbol, massNumber);
     },
 
     /**
@@ -213,7 +121,7 @@ const RouteEvaluator = {
      * @param {Object} source - Source parameters (effectiveYield, etc.)
      * @returns {Object} Evaluation result
      */
-    evaluateRoute: function(route, modelState, source = null) {
+    evaluateRoute: function (route, modelState, source = null) {
         if (!route || !modelState) {
             throw new Error('Route and modelState must be provided');
         }
@@ -227,13 +135,13 @@ const RouteEvaluator = {
         // ============================================================================
         // LOOKUP ISOTOPE PATHWAY
         // ============================================================================
-        
+
         const pathway = lookupPathway(route);
         let pathwayDataAvailable = false;
-        
+
         if (pathway) {
             pathwayDataAvailable = true;
-            
+
             // Emit pathway warnings
             if (pathway.warnings && Array.isArray(pathway.warnings)) {
                 pathway.warnings.forEach(warningCode => {
@@ -246,7 +154,7 @@ const RouteEvaluator = {
             // Pathway not found - warn and proceed conservatively
             if (typeof console !== 'undefined' && console.warn) {
                 console.warn(`Isotope pathway not found for route ${route.id} (product: ${route.product_isotope}). ` +
-                           `Proceeding conservatively with route metadata only.`);
+                    `Proceeding conservatively with route metadata only.`);
             }
             warnings.push('Isotope pathway not found in canonical registry - using route metadata only');
         }
@@ -254,9 +162,9 @@ const RouteEvaluator = {
         // ============================================================================
         // FLUX DETERMINATION (ICD-SOURCE UNIFICATION)
         // ============================================================================
-        
+
         let effectiveFlux = 0;
-        
+
         // If a standardized source object is provided, use its effectiveYield
         if (source && source.effectiveYield !== undefined) {
             // Source object follows ICD-SOURCE: { effectiveYield, ... }
@@ -269,18 +177,18 @@ const RouteEvaluator = {
         // Apply duty cycle if specified and not already applied by source module
         const dutyCycle = modelState.dutyCycle || 1.0;
         if (!source || source.effectiveYield === undefined) {
-             effectiveFlux *= dutyCycle;
+            effectiveFlux *= dutyCycle;
         }
 
         // ============================================================================
         // THRESHOLD CHECK
         // ============================================================================
-        
+
         // Use pathway threshold if available, otherwise route threshold
         const threshold_MeV = pathway && pathway.production && pathway.production.threshold_MeV !== undefined
             ? pathway.production.threshold_MeV
             : (route.threshold_MeV !== null ? route.threshold_MeV : null);
-        
+
         if (threshold_MeV !== null && threshold_MeV > 0) {
             const neutronEnergy = modelState.neutronEnergy || 14.1; // Default to 14.1 MeV for fast neutrons
             if (neutronEnergy < threshold_MeV) {
@@ -297,7 +205,7 @@ const RouteEvaluator = {
         // ============================================================================
         // CHEMICAL SEPARABILITY CHECK
         // ============================================================================
-        
+
         // Use pathway chemistry mode if available, otherwise route flags
         const chemical_separable = pathway && pathway.chemistry
             ? (pathway.chemistry.mode !== undefined && pathway.chemistry.mode !== 'generator') // Generator mode implies separable
@@ -305,7 +213,7 @@ const RouteEvaluator = {
         const carrier_added_acceptable = pathway && pathway.chemistry && pathway.chemistry.carrier_added_ok !== undefined
             ? pathway.chemistry.carrier_added_ok
             : route.carrier_added_acceptable;
-        
+
         if (!chemical_separable && !carrier_added_acceptable) {
             return {
                 route_id: route.id,
@@ -319,10 +227,10 @@ const RouteEvaluator = {
         // ============================================================================
         // CROSS-SECTION AND FLUX DETERMINATION
         // ============================================================================
-        
+
         let sigma_cm2 = 0;
-        let effectiveFlux = 0;
-        
+
+
         // Get reaction type from pathway if available, otherwise route
         let reactionType = null;
         if (pathway && pathway.production && pathway.production.reaction) {
@@ -355,7 +263,7 @@ const RouteEvaluator = {
                 warnings.push('Cross-section not specified - using conservative placeholder');
                 sigma_cm2 = 10e-27; // 10 mb = 10e-27 cm² (conservative placeholder)
             }
-            
+
             // Apply threshold activation if threshold exists
             const neutronEnergy = modelState.neutronEnergy || 14.1; // MeV
             if (threshold_MeV !== null && threshold_MeV > 0) {
@@ -364,7 +272,7 @@ const RouteEvaluator = {
                 const sigma_mb = sigma_cm2 / 1e-27;
                 const effectiveSigma_mb = Model.thresholdActivation(neutronEnergy, threshold_MeV, sigma_mb);
                 sigma_cm2 = effectiveSigma_mb * 1e-27; // Convert back to cm²
-                
+
                 if (sigma_cm2 === 0) {
                     return {
                         route_id: route.id,
@@ -380,20 +288,20 @@ const RouteEvaluator = {
         // ============================================================================
         // RESONANCE-DOMINATED ISOTOPE WARNING
         // ============================================================================
-        
+
         // Use pathway resonance_dominated flag if available, otherwise route
         const resonance_dominated = pathway && pathway.production && pathway.production.resonance_dominated !== undefined
             ? pathway.production.resonance_dominated
             : (route.resonance_dominated === true);
-        
+
         // Warn if resonance-dominated isotope is used with non-thermal spectrum
         if (resonance_dominated === true) {
             const fluxProfileType = modelState.fluxProfileType || 'constant'; // Default to constant if not specified
             if (fluxProfileType !== 'pure_thermal') {
                 if (typeof console !== 'undefined' && console.warn) {
                     console.warn(`Resonance-dominated isotope detected. ` +
-                               `Effective resonance integral approximation may misestimate yield by 2–5× for non-1/E spectra. ` +
-                               `Route: ${route.id}, Flux profile: ${fluxProfileType}`);
+                        `Effective resonance integral approximation may misestimate yield by 2–5× for non-1/E spectra. ` +
+                        `Route: ${route.id}, Flux profile: ${fluxProfileType}`);
                 }
             }
         }
@@ -401,7 +309,7 @@ const RouteEvaluator = {
         // ============================================================================
         // REACTION RATE CALCULATION
         // ============================================================================
-        
+
         // Use pathway self_shielding flag if available, otherwise modelState
         // If pathway specifies self_shielding: true, use calculated value; if false or undefined, use modelState
         let f_shield = modelState.selfShieldingFactor || 1.0;
@@ -414,24 +322,24 @@ const RouteEvaluator = {
         }
         const enrichment = modelState.enrichment || 1.0;
         const targetMass = modelState.targetMass || 1.0; // g
-        
+
         // Calculate number of target atoms
         // Atomic masses are planning-grade values sourced from standard atomic weights; not isotopic mass excess.
         const N_AVOGADRO = 6.02214076e23; // atoms/mol
         const targetElement = this.extractElementSymbol(route.target_isotope);
-        const atomicMass = typeof AtomicMasses !== 'undefined' ? 
+        const atomicMass = typeof AtomicMasses !== 'undefined' ?
             AtomicMasses.getAtomicMass(targetElement) : 100.0; // Fallback if module not loaded
         const N_target = (targetMass * N_AVOGADRO * enrichment) / atomicMass;
-        
+
         const reactionRate = Model.reactionRate(N_target, sigma_cm2, effectiveFlux, f_shield);
 
         // ============================================================================
         // ACTIVITY AND SPECIFIC ACTIVITY AT EOB
         // ============================================================================
-        
+
         const t_irr = modelState.irradiationTime || 86400; // s
         const lambda = Model.decayConstant(route.product_half_life_days);
-        
+
         // Product burn-up physics: OPTIONAL and data-dependent
         // Product burn-up occurs when the product isotope itself is activated during irradiation,
         // reducing the effective yield. This is significant for high-flux, long-irradiation cases.
@@ -441,26 +349,26 @@ const RouteEvaluator = {
         // This preserves backward compatibility and allows routes without burn-up data to work normally.
         let N_EOB;
         let k_burn_product = 0;
-        
+
         // Get product burn-up cross-section from pathway if available, otherwise route
         const sigma_product_burn_cm2 = pathway && pathway.production && pathway.production.sigma_product_burn_cm2 !== undefined
             ? pathway.production.sigma_product_burn_cm2
             : (route.sigma_product_burn_cm2 !== null && route.sigma_product_burn_cm2 !== undefined ? route.sigma_product_burn_cm2 : null);
-        
+
         // Check if product burn-up should be applied
         const apply_product_burnup = pathway && pathway.production && pathway.production.burnup_product !== undefined
             ? pathway.production.burnup_product
             : (sigma_product_burn_cm2 !== null && sigma_product_burn_cm2 !== undefined && sigma_product_burn_cm2 > 0);
-        
+
         if (apply_product_burnup && sigma_product_burn_cm2 !== null && sigma_product_burn_cm2 !== undefined && sigma_product_burn_cm2 > 0) {
             // Product burn-up data available: compute burn-up rate constant with self-shielding
             // v2.2.1: Now includes self-shielding for symmetric treatment with production reaction
-            
+
             // Warn user about v2.2.1 change
             if (typeof console !== 'undefined' && console.warn) {
                 console.warn(`Product burn-up now includes self-shielding (v2.2.1). Results may differ from v2.2.0 by 10–50% for thick or high-flux targets. Route: ${route.id}`);
             }
-            
+
             // Estimate product atom density and target thickness for self-shielding calculation
             // Product atom density: approximate from reaction rate and saturation
             // Use target density as base, estimate product concentration from production
@@ -474,16 +382,16 @@ const RouteEvaluator = {
             const massDensity_g_cm3 = (atomicMass / N_AVOGADRO) * targetDensity_cm3;
             const targetVolume_cm3 = massDensity_g_cm3 > 0 ? (targetMass / massDensity_g_cm3) : 1.0; // Approximate volume (cm³)
             // Product density = N_product / V_target (assuming uniform distribution)
-            const productAtomDensity_cm3 = targetVolume_cm3 > 0 
+            const productAtomDensity_cm3 = targetVolume_cm3 > 0
                 ? Math.min(N_product_approx / targetVolume_cm3, targetDensity_cm3) // Clamp to target density
                 : targetDensity_cm3 * 0.1; // Fallback: 10% of target density
             // Ensure non-negative
             const productAtomDensity_cm3_clamped = Math.max(productAtomDensity_cm3, 0);
-            
+
             // Estimate target thickness from target mass and density
             // For planning-grade: use default thickness or estimate from geometry
             const targetThickness_cm = modelState.targetThickness || 0.2; // Default: 0.2 cm (typical solid target)
-            
+
             // Calculate product burn-up rate constant with self-shielding
             k_burn_product = Model.productBurnUpRate(
                 effectiveFlux,
@@ -491,16 +399,16 @@ const RouteEvaluator = {
                 productAtomDensity_cm3_clamped,
                 targetThickness_cm
             );
-            
+
             // Warning: If burn-up dominates decay, yield will be strongly suppressed
             if (k_burn_product > lambda) {
                 if (typeof console !== 'undefined' && console.warn) {
                     console.warn(`Product burn-up dominates decay for route ${route.id}: ` +
-                                `k_burn_product (${k_burn_product.toExponential(2)} s⁻¹) > lambda_decay (${lambda.toExponential(2)} s⁻¹). ` +
-                                `Yield will be strongly suppressed.`);
+                        `k_burn_product (${k_burn_product.toExponential(2)} s⁻¹) > lambda_decay (${lambda.toExponential(2)} s⁻¹). ` +
+                        `Yield will be strongly suppressed.`);
                 }
             }
-            
+
             // Use product burn-up physics: atomsAtEOBWithProductBurnUp internally calculates
             // effective decay constant λ_eff = λ_decay + k_burn_product and applies it to saturation
             N_EOB = Model.atomsAtEOBWithProductBurnUp(reactionRate, lambda, k_burn_product, t_irr);
@@ -510,17 +418,17 @@ const RouteEvaluator = {
             const f_sat = Model.saturationFactor(lambda, t_irr);
             N_EOB = Model.atomsAtEOB(reactionRate, f_sat, lambda);
         }
-        
+
         const activity_EOB = Model.activity(lambda, N_EOB);
 
         // Calculate product mass for specific activity calculation
         // Atomic masses are planning-grade values sourced from standard atomic weights; not isotopic mass excess.
         const ATOMIC_MASS_UNIT_g = 1.66053906660e-24; // g
         const productElement = this.extractElementSymbol(route.product_isotope);
-        const productAtomicMass = typeof AtomicMasses !== 'undefined' ? 
+        const productAtomicMass = typeof AtomicMasses !== 'undefined' ?
             AtomicMasses.getAtomicMass(productElement) : 100.0; // Fallback if module not loaded
         const productMass = N_EOB * productAtomicMass * ATOMIC_MASS_UNIT_g;
-        
+
         // For carrier-added routes, include carrier mass in specific activity calculation
         // Carrier-added specific activity includes stable carrier mass
         let totalMass = productMass;
@@ -532,16 +440,16 @@ const RouteEvaluator = {
             totalMass = productMass + carrierMass;
             // Note: For n.c.a. routes, carrierMass is negligible (productMass only)
         }
-        
+
         const specificActivity = Model.specificActivity(activity_EOB, Math.max(totalMass, 1e-9));
 
         // ============================================================================
         // IMPURITY RISK ASSESSMENT (QUALITATIVE + QUANTITATIVE)
         // ============================================================================
-        
+
         const hasLongLivedImpurity = this.checkLongLivedImpurity(route);
         const hasChemicalInseparability = this.checkChemicalInseparability(route);
-        
+
         // Quantitative impurity assessment (if data available)
         const quantitativeImpurityAssessment = this.assessImpurityQuantitative(
             route,
@@ -552,7 +460,7 @@ const RouteEvaluator = {
             t_irr,
             activity_EOB,
             modelState,
-            warningsRef
+            warnings
         );
 
         if (hasLongLivedImpurity) {
@@ -571,10 +479,10 @@ const RouteEvaluator = {
         // ============================================================================
         // IMPURITY TRAP ASSESSMENT
         // ============================================================================
-        
+
         const impurityTrapAssessment = this.assessImpurityTraps(route);
         impurityRiskLevel = impurityTrapAssessment.risk_level;
-        
+
         // Enhance risk level with quantitative assessment if available
         if (quantitativeImpurityAssessment.hasQuantitativeData) {
             const maxImpurityFraction = quantitativeImpurityAssessment.maxImpurityFraction;
@@ -588,7 +496,7 @@ const RouteEvaluator = {
                 warnings.push(`QUANTITATIVE: Maximum impurity fraction ${(maxImpurityFraction * 100).toFixed(3)}% is in 0.1-1% range`);
             }
         }
-        
+
         // Add warnings for high-risk impurity traps (but don't block calculations)
         if (impurityTrapAssessment.traps.length > 0) {
             impurityTrapAssessment.traps.forEach(trap => {
@@ -599,7 +507,7 @@ const RouteEvaluator = {
                 }
             });
         }
-        
+
         // Check for FAIL condition: impurity half-life > 30 days AND inseparable
         // Note: This adds to reasons but doesn't automatically block (as per requirements)
         if (impurityTrapAssessment.has_fail_condition) {
@@ -610,7 +518,7 @@ const RouteEvaluator = {
         // ============================================================================
         // REGULATORY FLAG CHECK
         // ============================================================================
-        
+
         if (route.regulatory_flag === 'exploratory') {
             classification = 'Feasible with constraints';
             reasons.push('Exploratory route - requires special handling and regulatory review');
@@ -622,22 +530,22 @@ const RouteEvaluator = {
         // ============================================================================
         // ACTIVITY THRESHOLD CHECKS (Application-Context Dependent)
         // ============================================================================
-        
+
         // Application context thresholds (GBq)
         // Medical: viable ≥ 1 GBq, marginal 0.1–1 GBq, not viable < 0.1 GBq
         // Industrial: viable ≥ 0.1 GBq, marginal 0.01–0.1 GBq, not viable < 0.01 GBq
         // Research: viable ≥ 0.01 GBq, marginal 0.001–0.01 GBq, not viable < 0.001 GBq
         const applicationContext = modelState.applicationContext || 'medical'; // Default to medical
         const activity_GBq = activity_EOB / 1e9;
-        
+
         let activityThresholds = {
             medical: { viable: 1.0, marginal: 0.1, notViable: 0.01 },
             industrial: { viable: 0.1, marginal: 0.01, notViable: 0.001 },
             research: { viable: 0.01, marginal: 0.001, notViable: 0.0001 }
         };
-        
+
         const thresholds = activityThresholds[applicationContext] || activityThresholds.medical;
-        
+
         if (activity_GBq < thresholds.notViable) {
             feasible = false;
             classification = 'Not recommended';
@@ -653,7 +561,7 @@ const RouteEvaluator = {
         // ============================================================================
         // SPECIFIC ACTIVITY CHECKS (for n.c.a. routes)
         // ============================================================================
-        
+
         if (!carrier_added_acceptable) {
             // n.c.a. routes require high specific activity
             if (specificActivity < 1e12) { // Bq/g
@@ -665,7 +573,7 @@ const RouteEvaluator = {
         // ============================================================================
         // REACTION RATE CHECKS
         // ============================================================================
-        
+
         if (reactionRate < 1e6) { // reactions/s
             warnings.push(`Low reaction rate (${reactionRate.toExponential(2)} reactions/s) - production may be inefficient`);
         }
@@ -673,24 +581,24 @@ const RouteEvaluator = {
         // ============================================================================
         // DELIVERED ACTIVITY (after decay + transport + chemistry yield)
         // ============================================================================
-        
+
         // Calculate activity after decay during chemistry delay and transport
         let activity_after_decay_transport = activity_EOB;
-        
+
         // Apply decay during chemistry delay (if chemistry delay specified)
         const chemistryDelay_hours = modelState.chemistryDelayHours || 0;
         if (chemistryDelay_hours > 0) {
             const t_chem = chemistryDelay_hours * 3600; // Convert to seconds
             activity_after_decay_transport = activity_after_decay_transport * Math.exp(-lambda * t_chem);
         }
-        
+
         // Apply decay during transport (if transport time specified)
         const transportTime_hours = modelState.transportTimeHours || 0;
         if (transportTime_hours > 0) {
             const t_transport = transportTime_hours * 3600; // Convert to seconds
             activity_after_decay_transport = activity_after_decay_transport * Math.exp(-lambda * t_transport);
         }
-        
+
         // Apply chemistry yield
         // Chemistry yield enforced to prevent optimistic bias.
         // If pathway.chemistry.default_yield exists, always apply it.
@@ -698,7 +606,7 @@ const RouteEvaluator = {
         let activity_delivered = activity_after_decay_transport;
         let chemistry_yield = null;
         let yield_source = null; // Track source for 1.0 validation
-        
+
         // Priority 1: Pathway chemistry yield (always apply if exists, regardless of chemical_separable flag)
         if (pathway && pathway.chemistry && pathway.chemistry.default_yield !== undefined) {
             chemistry_yield = pathway.chemistry.default_yield;
@@ -717,14 +625,14 @@ const RouteEvaluator = {
                 console.warn(`No chemistry yield specified for route ${route.id}. Applying conservative default of 85%.`);
             }
         }
-        
+
         // Apply chemistry yield if determined (never allow implicit 1.0)
         if (chemistry_yield !== null && chemistry_yield !== undefined) {
             // Enforce: Never allow 1.0 unless explicitly stated in pathway or route
             if (chemistry_yield >= 1.0) {
                 const is_explicitly_stated = (yield_source === 'pathway' && pathway.chemistry.default_yield === 1.0) ||
-                                            (yield_source === 'route' && route.chemistry_yield === 1.0);
-                
+                    (yield_source === 'route' && route.chemistry_yield === 1.0);
+
                 if (!is_explicitly_stated) {
                     // Clamp to conservative maximum (0.99) to prevent optimistic bias
                     chemistry_yield = 0.99;
@@ -733,7 +641,7 @@ const RouteEvaluator = {
                     }
                 }
             }
-            
+
             // Always apply chemistry yield using existing Model function
             activity_delivered = Model.deliveredActivityWithChemistryYield(activity_after_decay_transport, chemistry_yield);
         }
@@ -741,23 +649,23 @@ const RouteEvaluator = {
         // ============================================================================
         // HIGH-FLUX, LONG-IRRADIATION, THICK-TARGET WARNING
         // ============================================================================
-        
+
         // Warn if all three conditions are met: high flux, long irradiation, thick target
         const irradiationTime_days = t_irr / 86400; // Convert seconds to days
         const targetThickness_cm = modelState.targetThickness || 0.2; // Default: 0.2 cm (typical solid target)
-        
+
         if (effectiveFlux > 1e14 && irradiationTime_days > 7 && targetThickness_cm > 0.2) {
             if (typeof console !== 'undefined' && console.warn) {
                 console.warn(`High-flux, long-irradiation, thick-target regime detected. ` +
-                           `Even after v2.2.1 corrections, yields may be overestimated. ` +
-                           `(flux: ${effectiveFlux.toExponential(2)} cm⁻² s⁻¹, time: ${irradiationTime_days.toFixed(1)} days, thickness: ${targetThickness_cm.toFixed(2)} cm)`);
+                    `Even after v2.2.1 corrections, yields may be overestimated. ` +
+                    `(flux: ${effectiveFlux.toExponential(2)} cm⁻² s⁻¹, time: ${irradiationTime_days.toFixed(1)} days, thickness: ${targetThickness_cm.toFixed(2)} cm)`);
             }
         }
 
         // ============================================================================
         // FINAL CLASSIFICATION
         // ============================================================================
-        
+
         if (!feasible) {
             classification = 'Not recommended';
         } else if (reasons.length > 0) {
@@ -765,6 +673,8 @@ const RouteEvaluator = {
         } else {
             classification = 'Feasible';
         }
+
+        const f_sat = Model.saturationFactor(lambda, t_irr);
 
         return {
             route_id: route.id,
@@ -792,13 +702,13 @@ const RouteEvaluator = {
      * @param {Object} route - Route object
      * @returns {boolean} True if long-lived impurity is present
      */
-    checkLongLivedImpurity: function(route) {
+    checkLongLivedImpurity: function (route) {
         if (!route.impurity_risks || route.impurity_risks.length === 0) {
             return false;
         }
 
         const productHalfLife = route.product_half_life_days;
-        
+
         // Known long-lived impurity patterns (heuristic)
         const longLivedPatterns = [
             /Mo-100/,  // Very long-lived
@@ -818,7 +728,7 @@ const RouteEvaluator = {
         for (let i = 0; i < route.impurity_risks.length; i++) {
             const impurity = route.impurity_risks[i];
             const isLongLived = longLivedPatterns.some(pattern => pattern.test(impurity));
-            
+
             if (isLongLived && productHalfLife < 30) {
                 return true;
             }
@@ -833,7 +743,7 @@ const RouteEvaluator = {
      * @param {Object} route - Route object
      * @returns {boolean} True if chemically inseparable impurity is present
      */
-    checkChemicalInseparability: function(route) {
+    checkChemicalInseparability: function (route) {
         if (!route.impurity_risks || route.impurity_risks.length === 0) {
             return false;
         }
@@ -843,7 +753,7 @@ const RouteEvaluator = {
         for (let i = 0; i < route.impurity_risks.length; i++) {
             const impurity = route.impurity_risks[i];
             const impurityElement = impurity.match(/([A-Z][a-z]?)-?\d+/);
-            
+
             if (impurityElement && impurityElement[1] === productElement) {
                 return true;
             }
@@ -863,7 +773,7 @@ const RouteEvaluator = {
      * @param {Object} route - Route object
      * @returns {Object} Assessment result with risk_level and traps array
      */
-    assessImpurityTraps: function(route) {
+    assessImpurityTraps: function (route) {
         const traps = [];
         let riskScore = 0;
         let hasFailCondition = false;
@@ -936,7 +846,7 @@ const RouteEvaluator = {
             // Rule 1: Check if impurity half-life >> product half-life
             if (impurityHalfLife !== undefined && impurityHalfLife !== Infinity) {
                 const halfLifeRatio = impurityHalfLife / productHalfLife;
-                
+
                 if (halfLifeRatio > 10) {
                     // Impurity half-life >> product half-life → HIGH RISK
                     riskScore += 3;
@@ -977,8 +887,8 @@ const RouteEvaluator = {
             }
 
             // Rule 3: Check if impurity half-life > 30 days AND inseparable
-            if (impurityHalfLife !== undefined && 
-                impurityHalfLife > 30 && 
+            if (impurityHalfLife !== undefined &&
+                impurityHalfLife > 30 &&
                 impurityHalfLife !== Infinity &&
                 impurityElement === productElement) {
                 hasFailCondition = true;
@@ -1020,7 +930,7 @@ const RouteEvaluator = {
      * @param {Array} warnings - Warnings array to append to
      * @returns {Object} Quantitative assessment result
      */
-    assessImpurityQuantitative: function(route, N_target, sigma_cm2, effectiveFlux, f_shield, t_irr, activity_product, modelState, warnings) {
+    assessImpurityQuantitative: function (route, N_target, sigma_cm2, effectiveFlux, f_shield, t_irr, activity_product, modelState, warnings) {
         if (!route.impurity_risks || route.impurity_risks.length === 0 || activity_product <= 0) {
             return {
                 hasQuantitativeData: false,
@@ -1037,72 +947,72 @@ const RouteEvaluator = {
             // ============================================================================
             // FAST NEUTRON ROUTE IMPURITIES
             // ============================================================================
-            
+
             // Zn-67(n,p)Cu-67 route impurities
             'Zn-64(n,p)Cu-64': 0.015, // Planning-grade (evaluated library): ~15 mb at 14.1 MeV
             'Zn-67(n,γ)Zn-65': 0.1,   // Planning-grade (evaluated library): thermal capture ~100 mb
             'Cu-63(n,p)Ni-63': 0.008, // Planning-grade (evaluated library): ~8 mb at 14.1 MeV
-            
+
             // Ti-47(n,p)Sc-47 route impurities
             'Sc-47(n,γ)Sc-46': 0.05,  // Planning-grade (evaluated library): thermal capture ~50 mb
             'Ti-47(n,γ)Ti-48': 0.05,  // Planning-grade (evaluated library): thermal capture ~50 mb
-            
+
             // Ti-48(n,d)Sc-47 route impurities
             'Ti-48(n,γ)Ti-49': 0.05,  // Planning-grade (evaluated library): thermal capture ~50 mb
-            
+
             // Mo-100(n,2n)Mo-99 route impurities
             'Mo-99(n,γ)Mo-100': 0.15, // Planning-grade (evaluated library): thermal capture ~150 mb
             'Mo-99(n,2n)Mo-98': 0.3,  // Planning-grade (evaluated library): ~300 mb at 14.1 MeV
-            
+
             // ============================================================================
             // MODERATED CAPTURE ROUTE IMPURITIES
             // ============================================================================
-            
+
             // Ho-165(n,γ)Ho-166 route impurities
             'Ho-165(n,γ)Ho-166m': 0.5, // Planning-grade (evaluated library): thermal capture ~500 mb
-            
+
             // Sm-152(n,γ)Sm-153 route impurities
             'Sm-153(n,γ)Sm-154': 0.2,  // Planning-grade (evaluated library): thermal capture ~200 mb
-            
+
             // Dy-164(n,γ)Dy-165 route impurities
             'Dy-165(n,γ)Dy-166': 0.3,  // Planning-grade (evaluated library): thermal capture ~300 mb
-            
+
             // Re-185(n,γ)Re-186 route impurities
             'Re-186(n,γ)Re-187': 0.12, // Planning-grade (evaluated library): thermal capture ~120 mb
-            
+
             // Au-197(n,γ)Au-198 route impurities
             'Au-198(n,γ)Au-199': 0.25, // Planning-grade (evaluated library): thermal capture ~250 mb
-            
+
             // Lu-176(n,γ)Lu-177 route impurities
             'Lu-177(n,γ)Lu-178': 0.2,  // Planning-grade (evaluated library): thermal capture ~200 mb
-            
+
             // ============================================================================
             // GENERATOR ROUTE IMPURITIES
             // ============================================================================
-            
+
             // W-188 → Re-188 generator impurities
             'W-188(n,γ)W-189': 0.15,   // Planning-grade (evaluated library): thermal capture ~150 mb
-            
+
             // Sn-117m generator impurities
             'Sn-117m(n,γ)Sn-118': 0.08, // Planning-grade (evaluated library): thermal capture ~80 mb
-            
+
             // ============================================================================
             // ALPHA/STRATEGIC ROUTE IMPURITIES
             // ============================================================================
-            
+
             // Ra-226(n,2n)Ra-225 → Ac-225 route impurities
             'Ra-225(n,γ)Ra-224': 0.1,  // Planning-grade (evaluated library): thermal capture ~100 mb
-            
+
             // ============================================================================
             // INDUSTRIAL ROUTE IMPURITIES
             // ============================================================================
-            
+
             // Ir-191(n,γ)Ir-192 route impurities
             'Ir-192(n,γ)Ir-193': 0.18, // Planning-grade (evaluated library): thermal capture ~180 mb
-            
+
             // Co-59(n,γ)Co-60 route impurities
             'Co-60(n,γ)Co-61': 0.2,    // Planning-grade (evaluated library): thermal capture ~200 mb
-            
+
             // ============================================================================
             // DEFAULT FALLBACK
             // ============================================================================
@@ -1137,20 +1047,20 @@ const RouteEvaluator = {
 
             // Calculate impurity production rate
             const sigma_impurity_cm2 = sigma_impurity_barns * 1e-24;
-            
+
             // Calculate impurity target atom density based on isotopic fraction
             // Parse target isotope from route to determine if impurity comes from different isotope
             const routeTargetIsotope = route.target_isotope; // e.g., 'Zn-67'
             const routeTargetElement = routeTargetIsotope.split('-')[0]; // 'Zn'
             const routeTargetMass = parseInt(routeTargetIsotope.split('-')[1]); // 67
-            
+
             // Determine if impurity parent isotope is different from route target
             const impurityParentMass = parseInt(targetIsotope.split('-')[1]); // e.g., 64 from 'Zn-64'
             const impurityParentElement = targetIsotope.split('-')[0]; // 'Zn'
-            
+
             let N_target_impurity = N_target; // Default: same as product target
             let impurityDataQuality = 'assumed_same_composition';
-            
+
             if (impurityParentElement === routeTargetElement && impurityParentMass !== routeTargetMass) {
                 // Impurity comes from different isotope of same element (e.g., Zn-64 in Zn-67 target)
                 // Use natural isotopic abundance or enrichment metadata
@@ -1182,7 +1092,7 @@ const RouteEvaluator = {
                 impurityDataQuality = 'trace_impurity_estimate';
             }
             // Else: same isotope (impurity from product itself) - use N_target as-is
-            
+
             const R_impurity = Model.reactionRate(N_target_impurity, sigma_impurity_cm2, effectiveFlux, f_shield);
 
             // Get impurity half-life (from assessImpurityTraps database)
@@ -1192,7 +1102,7 @@ const RouteEvaluator = {
                 'Lu-178': 28.4, 'Zn-67': 2.4
             };
             const impurityHalfLife_days = impurityHalfLives[impurityIsotope];
-            
+
             if (!impurityHalfLife_days || impurityHalfLife_days === Infinity) {
                 return; // Skip stable or unknown impurities for activity calculation
             }

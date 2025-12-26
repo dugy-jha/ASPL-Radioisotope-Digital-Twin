@@ -9,47 +9,51 @@
  * - Only sliders, inputs, event handlers, and DOM updates
  */
 
+import { Model } from './model.js';
+import { RouteEvaluator } from './routeEvaluator.js';
+import { Charts } from './charts.js';
+
 window.onerror = function (msg, url, line, col, error) {
-  console.error("GLOBAL ERROR:", msg, url, line, col, error);
+    console.error("GLOBAL ERROR:", msg, url, line, col, error);
 };
 
-const UI = {
+export const UI = {
     /**
      * Initialize UI components and event listeners
      */
-    init: function() {
+    init: function () {
         // UI-ONLY CHANGE — NO PHYSICS MODIFICATION
         // 1. Critical UI Setup (Setup first so user can interact even if charts fail)
-        try { this.initRouteSelector(); } catch(e) { console.error("initRouteSelector failed", e); }
-        try { this.addPlanningWarningBanner(); } catch(e) { console.error("addPlanningWarningBanner failed", e); }
-        try { this.addPhysicsLockBanner(); } catch(e) { console.error("addPhysicsLockBanner failed", e); }
-        try { this.disablePhysicsInputs(); } catch(e) { console.error("disablePhysicsInputs failed", e); }
-        try { this.setupEventListeners(); } catch(e) { console.error("setupEventListeners failed", e); }
-        try { this.initLimitations(); } catch(e) { console.error("initLimitations failed", e); }
+        try { this.initRouteSelector(); } catch (e) { console.error("initRouteSelector failed", e); }
+        try { this.addPlanningWarningBanner(); } catch (e) { console.error("addPlanningWarningBanner failed", e); }
+        try { this.addPhysicsLockBanner(); } catch (e) { console.error("addPhysicsLockBanner failed", e); }
+        try { this.disablePhysicsInputs(); } catch (e) { console.error("disablePhysicsInputs failed", e); }
+        try { this.setupEventListeners(); } catch (e) { console.error("setupEventListeners failed", e); }
+        try { this.initLimitations(); } catch (e) { console.error("initLimitations failed", e); }
 
         // 2. Data & Calculations
-        try { this.initializeRouteRegistry(); } catch(e) { console.error("initializeRouteRegistry failed", e); }
-        try { this.initRouteExplorer(); } catch(e) { console.error("initRouteExplorer failed", e); }
-        
+        try { this.initializeRouteRegistry(); } catch (e) { console.error("initializeRouteRegistry failed", e); }
+        try { this.initRouteExplorer(); } catch (e) { console.error("initRouteExplorer failed", e); }
+
         // 3. Visualization & Rendering
-        try { this.initializeCharts(); } catch(e) { console.error("initializeCharts failed", e); }
-        try { this.updateEquations(); } catch(e) { console.error("updateEquations failed", e); }
-        
+        try { this.initializeCharts(); } catch (e) { console.error("initializeCharts failed", e); }
+        try { this.updateEquations(); } catch (e) { console.error("updateEquations failed", e); }
+
         // 4. Initial Run
-        try { this.updateAllCharts(); } catch(e) { console.error("updateAllCharts failed", e); }
+        try { this.updateAllCharts(); } catch (e) { console.error("updateAllCharts failed", e); }
     },
 
     /**
      * Initialize charts
      */
-    initializeCharts: function() {
+    initializeCharts: function () {
         Charts.init();
     },
 
     /**
      * Add planning-grade warning banner on page load
      */
-    addPlanningWarningBanner: function() {
+    addPlanningWarningBanner: function () {
         // Banner is already in HTML, just ensure it's visible
         const banner = document.getElementById('planningWarningBanner');
         if (banner && typeof console !== 'undefined' && console.warn) {
@@ -60,7 +64,7 @@ const UI = {
     /**
      * Add physics lock banner to UI
      */
-    addPhysicsLockBanner: function() {
+    addPhysicsLockBanner: function () {
         // UI-ONLY CHANGE — NO PHYSICS MODIFICATION
         // New layout includes physics lock text in the top banner; avoid duplicating.
         if (document.getElementById('planningWarningBanner')) {
@@ -69,15 +73,15 @@ const UI = {
 
         const main = document.querySelector('main');
         if (!main) return;
-        
+
         // Check if banner already exists
         if (document.getElementById('physicsLockBanner')) return;
-        
+
         const banner = document.createElement('div');
         banner.id = 'physicsLockBanner';
         banner.style.cssText = 'background-color: #fff3cd; border: 2px solid #ffc107; border-radius: 6px; padding: 14px 18px; margin: 20px 0; color: #856404; font-weight: 600; font-size: 1.05em; text-align: center; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);';
         banner.innerHTML = '<strong>🔒 Physics Locked:</strong> Nuclear pathways and physics models are fixed. Only source, moderation, and target geometry may be changed.';
-        
+
         // Insert after planning warning banner or at start of main
         const planningBanner = document.getElementById('planningWarningBanner');
         if (planningBanner && planningBanner.nextSibling) {
@@ -93,7 +97,7 @@ const UI = {
      * Initialize Route Selector (Step 1)
      * UI-ONLY CHANGE — NO PHYSICS MODIFICATION
      */
-    initRouteSelector: function() {
+    initRouteSelector: function () {
         const selector = document.getElementById('routeSelector');
         if (!selector) return;
 
@@ -171,7 +175,7 @@ const UI = {
      * Update route warnings panel based on selected pathway.
      * UI-ONLY CHANGE — NO PHYSICS MODIFICATION
      */
-    updateRouteWarningsFromSelector: function() {
+    updateRouteWarningsFromSelector: function () {
         const selector = document.getElementById('routeSelector');
         const warningsEl = document.getElementById('routeWarnings');
         if (!selector || !warningsEl) return;
@@ -208,7 +212,7 @@ const UI = {
     /**
      * Disable physics-related UI inputs and add warning handlers
      */
-    disablePhysicsInputs: function() {
+    disablePhysicsInputs: function () {
         // List of physics-locked input IDs
         const physicsLockedInputs = [
             'crossSection',      // Cross-section
@@ -217,7 +221,7 @@ const UI = {
             'branchingRatio',    // Decay chain parameter
             'chemistryLoss'      // Chemistry yield parameter
         ];
-        
+
         physicsLockedInputs.forEach(inputId => {
             const input = document.getElementById(inputId);
             if (input) {
@@ -226,19 +230,19 @@ const UI = {
                 input.style.backgroundColor = '#f5f5f5';
                 input.style.cursor = 'not-allowed';
                 input.title = 'Physics is frozen for comparative analysis.';
-                
+
                 // Add event handlers to show warning on interaction attempts
                 input.addEventListener('focus', (e) => {
                     e.preventDefault();
                     e.target.blur();
                     this.showPhysicsLockWarning();
                 });
-                
+
                 input.addEventListener('click', (e) => {
                     e.preventDefault();
                     this.showPhysicsLockWarning();
                 });
-                
+
                 input.addEventListener('keydown', (e) => {
                     if (e.key !== 'Tab' && e.key !== 'Escape') {
                         e.preventDefault();
@@ -252,27 +256,27 @@ const UI = {
     /**
      * Show warning when physics modification is attempted
      */
-    showPhysicsLockWarning: function() {
+    showPhysicsLockWarning: function () {
         const warningText = 'Physics is frozen for comparative analysis.';
-        
+
         // Show console warning
         if (typeof console !== 'undefined' && console.warn) {
             console.warn(warningText);
         }
-        
+
         // Show user-visible alert (non-blocking)
         const existingAlert = document.getElementById('physicsLockAlert');
         if (existingAlert) {
             existingAlert.remove();
         }
-        
+
         const alert = document.createElement('div');
         alert.id = 'physicsLockAlert';
         alert.style.cssText = 'position: fixed; top: 20px; right: 20px; background-color: #f8d7da; border: 2px solid #dc3545; border-radius: 4px; padding: 12px 16px; color: #721c24; font-weight: 500; z-index: 10000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px;';
         alert.innerHTML = `<strong>⚠️ Physics Lock:</strong> ${warningText}`;
-        
+
         document.body.appendChild(alert);
-        
+
         // Auto-remove after 3 seconds
         setTimeout(() => {
             if (alert.parentNode) {
@@ -284,7 +288,7 @@ const UI = {
     /**
      * Set up event listeners for UI elements
      */
-    setupEventListeners: function() {
+    setupEventListeners: function () {
         // Source type toggle
         const sourceType = document.getElementById('sourceType');
         if (sourceType) {
@@ -348,7 +352,7 @@ const UI = {
     /**
      * Toggle between neutron flux and beam current inputs
      */
-    toggleSourceType: function() {
+    toggleSourceType: function () {
         const sourceType = document.getElementById('sourceType').value;
         const fluxRow = document.getElementById('fluxRow');
         const beamRow = document.getElementById('beamRow');
@@ -387,10 +391,10 @@ const UI = {
      * @param {number} defaultValue - Default value if input is invalid
      * @returns {number} Validated number
      */
-    getParam: function(id, defaultValue = 0) {
+    getParam: function (id, defaultValue = 0) {
         const elem = document.getElementById(id);
         if (!elem) return defaultValue;
-        
+
         let value = parseFloat(elem.value);
         if (isNaN(value)) {
             // Apply visual feedback for invalid input
@@ -399,16 +403,16 @@ const UI = {
         } else {
             elem.classList.remove('usa-input--error');
         }
-        
+
         // Ensure non-negative for most engineering parameters
         const nonNegativeParams = [
-            'halfLife', 'crossSection', 'enrichment', 'parentDensity', 
-            'targetRadius', 'targetThickness', 'sourceDistance', 
-            'irradiationTime', 'dutyCycle', 'chemistryDelay', 
+            'halfLife', 'crossSection', 'enrichment', 'parentDensity',
+            'targetRadius', 'targetThickness', 'sourceDistance',
+            'irradiationTime', 'dutyCycle', 'chemistryDelay',
             'transportTime', 'chemistryLoss', 'flux', 'beamCurrent',
             'availability', 'fusionPower', 'wallLoading'
         ];
-        
+
         if (nonNegativeParams.includes(id) && value < 0) {
             elem.classList.add('usa-input--error');
             return 0;
@@ -420,7 +424,7 @@ const UI = {
     /**
      * Update all charts with current parameter values
      */
-    updateAllCharts: function() {
+    updateAllCharts: function () {
         this.updateActivityChart();
         this.updateReactionRateChart();
         this.updateDecayChainChart();
@@ -439,7 +443,7 @@ const UI = {
     /**
      * Update Activity vs Irradiation Time chart
      */
-    updateActivityChart: function() {
+    updateActivityChart: function () {
         const halfLife = this.getParam('halfLife', 1.0);
         const crossSection = this.getParam('crossSection', 1e-24);
         const enrichment = this.getParam('enrichment', 1.0);
@@ -508,7 +512,7 @@ const UI = {
     /**
      * Update Reaction Rate vs Flux/Beam Current chart
      */
-    updateReactionRateChart: function() {
+    updateReactionRateChart: function () {
         const crossSection = this.getParam('crossSection', 1e-24);
         const enrichment = this.getParam('enrichment', 1.0);
         const parentDensity = this.getParam('parentDensity', 5e22);
@@ -555,7 +559,7 @@ const UI = {
      * Update Parent–Daughter Activity vs Time chart
      * Includes production during irradiation and decay post-EOB
      */
-    updateDecayChainChart: function() {
+    updateDecayChainChart: function () {
         const parentHalfLife = this.getParam('halfLife', 1.0);
         const daughterHalfLife = this.getParam('daughterHalfLife', 0.5);
         const BR = this.getParam('branchingRatio', 1.0);
@@ -613,14 +617,14 @@ const UI = {
         for (let i = 0; i <= numPoints; i++) {
             const t = i * timeStep;
             const t_days = t / 86400;
-            
+
             let N_parent_t, N_daughter_t;
-            
+
             if (t <= t_irr) {
                 // During irradiation: parent is being produced
                 const f_sat_t = Model.saturationFactor(lambda_parent, t);
                 N_parent_t = Model.atomsAtEOB(R, f_sat_t, lambda_parent);
-                
+
                 // Daughter builds up from parent decay during irradiation
                 // Use Bateman equation: daughter from parent that was produced
                 // Approximate: use current parent atoms and apply Bateman
@@ -629,20 +633,20 @@ const UI = {
             } else {
                 // Post-EOB: parent decays exponentially, daughter follows Bateman from EOB
                 const t_post_EOB = t - t_irr;
-                
+
                 // Parent decays from EOB value
                 N_parent_t = N_parent_EOB * Math.exp(-lambda_parent * t_post_EOB);
-                
+
                 // Daughter at EOB
                 const N_daughter_EOB = Model.batemanOneStep(N_parent_EOB, BR, lambda_parent, lambda_daughter, t_irr);
-                
+
                 // After EOB: use Bateman equation with parent starting at EOB value
                 // This gives daughter from parent decay after EOB
                 const N_daughter_from_parent_decay = Model.batemanOneStep(N_parent_EOB, BR, lambda_parent, lambda_daughter, t);
-                
+
                 // Daughter that existed at EOB decays independently
                 const N_daughter_from_EOB_decay = N_daughter_EOB * Math.exp(-lambda_daughter * t_post_EOB);
-                
+
                 // Total daughter: new from parent decay (includes both production and decay)
                 // The Bateman equation already accounts for daughter decay, so we use it directly
                 N_daughter_t = N_daughter_from_parent_decay;
@@ -650,7 +654,7 @@ const UI = {
 
             const A_parent_t = Model.activity(lambda_parent, N_parent_t);
             const A_daughter_t = Model.activity(lambda_daughter, N_daughter_t);
-            
+
             timeData.push(t_days);
             parentData.push(A_parent_t);
             daughterData.push(A_daughter_t);
@@ -662,7 +666,7 @@ const UI = {
     /**
      * Update Temperature Rise vs Beam Power chart
      */
-    updateTemperatureChart: function() {
+    updateTemperatureChart: function () {
         const m_dot = this.getParam('coolantFlow', 0.1);
         const Cp = this.getParam('heatCapacity', 4184);
         const beamEnergy = this.getParam('beamEnergy', 10);
@@ -684,7 +688,7 @@ const UI = {
     /**
      * Update Damage Accumulation vs Time chart
      */
-    updateDamageChart: function() {
+    updateDamageChart: function () {
         const dpaRate = this.getParam('dpaRate', 1e-8);
         const irradiationTimeDays = this.getParam('irradiationTime', 7);
 
@@ -708,7 +712,7 @@ const UI = {
     /**
      * Update Activity Loss Waterfall chart
      */
-    updateWaterfallChart: function() {
+    updateWaterfallChart: function () {
         const halfLife = this.getParam('halfLife', 1.0);
         const crossSection = this.getParam('crossSection', 1e-24);
         const enrichment = this.getParam('enrichment', 1.0);
@@ -766,7 +770,7 @@ const UI = {
     /**
      * Update Delivered Activity vs Transport Time chart
      */
-    updateTransportChart: function() {
+    updateTransportChart: function () {
         const halfLife = this.getParam('halfLife', 1.0);
         const chemistryDelayHours = this.getParam('chemistryDelay', 24);
         const chemistryLoss = this.getParam('chemistryLoss', 1e-6);
@@ -791,7 +795,7 @@ const UI = {
     /**
      * Update Yield Uncertainty Bands chart
      */
-    updateUncertaintyChart: function() {
+    updateUncertaintyChart: function () {
         const halfLife = this.getParam('halfLife', 1.0);
         const crossSection = this.getParam('crossSection', 1e-24);
         const irradiationTimeDays = this.getParam('irradiationTime', 7);
@@ -846,15 +850,15 @@ const UI = {
      * Collect all results data for acceptance evaluation
      * Refactored to use standardized evaluation (v2.2.2)
      */
-    collectResults: function() {
+    collectResults: function () {
         const modelState = this.getModelState();
         const source = this.getSourcePerformance(modelState);
-        
+
         let route = null;
         if (typeof ISOTOPE_ROUTES !== 'undefined') {
             route = ISOTOPE_ROUTES.find(r => r.id === modelState.routeId);
         }
-        
+
         if (!route) {
             route = {
                 id: 'CUSTOM',
@@ -909,7 +913,7 @@ const UI = {
      * @returns {Object} {pass: boolean, failures: Array<{message, code, description, iaea_alignment}>, warnings: Array<{message, code, description, iaea_alignment}>}
      * @returns {Array<{code: string, description: string}>} iaea_alignment - Array of IAEA alignment references (informational only)
      */
-    evaluateAcceptance: function(results) {
+    evaluateAcceptance: function (results) {
         const failures = [];
         const warnings = [];
 
@@ -1117,7 +1121,7 @@ const UI = {
      * Get current model state from inputs
      * ICD-MODEL-STATE: Unified state carrier for all calculations.
      */
-    getModelState: function() {
+    getModelState: function () {
         const routeId = document.getElementById('routeSelector').value;
         const halfLife = this.getParam('halfLife', 1.0);
         const crossSection = this.getParam('crossSection', 1e-24);
@@ -1133,7 +1137,7 @@ const UI = {
         const chemistryLoss = this.getParam('chemistryLoss', 1e-6);
         const targetDensity = this.getParam('parentDensity', 5e22);
         const targetMass = this.getParam('targetMass', 1.0);
-        
+
         // Calculate geometry (physics-locked assumptions)
         const Omega = Model.solidAngle(sourceDistance, targetRadius);
         const eta = Model.geometricEfficiency(Omega);
@@ -1166,11 +1170,11 @@ const UI = {
     /**
      * Get current source performance (ICD-SOURCE)
      */
-    getSourcePerformance: function(modelState) {
+    getSourcePerformance: function (modelState) {
         const sourceType = document.getElementById('sourceType').value;
         const A_target = modelState.geometry.A_target;
         const eta = modelState.geometry.eta;
-        
+
         if (sourceType === 'gdt') {
             // Use GDT module (if available)
             if (typeof gdtNeutronSource === 'function') {
@@ -1192,14 +1196,14 @@ const UI = {
                 };
             }
         }
-        
+
         if (sourceType === 'neutron') {
             const phi = this.getParam('flux', 1e14);
             return {
                 effectiveYield: phi
             };
         }
-        
+
         if (sourceType === 'beam') {
             const I = this.getParam('beamCurrent', 1e-6);
             const q = this.getParam('particleCharge', 1);
@@ -1220,16 +1224,16 @@ const UI = {
      * Update results display
      * Refactored to use unified RouteEvaluator (v2.2.2)
      */
-    updateResultsDisplay: function() {
+    updateResultsDisplay: function () {
         const modelState = this.getModelState();
         const source = this.getSourcePerformance(modelState);
-        
+
         // Find route object (from registry)
         let route = null;
         if (typeof ISOTOPE_ROUTES !== 'undefined') {
             route = ISOTOPE_ROUTES.find(r => r.id === modelState.routeId);
         }
-        
+
         // If no route selected, use a minimal proxy for custom evaluation
         if (!route) {
             route = {
@@ -1244,10 +1248,7 @@ const UI = {
         const evaluation = RouteEvaluator.evaluateRoute(route, modelState, source);
 
         const formatNumber = (num) => {
-            if (num >= 1e12) return (num / 1e12).toFixed(2) + ' TBq';
-            if (num >= 1e9) return (num / 1e9).toFixed(2) + ' GBq';
-            if (num >= 1e6) return (num / 1e6).toFixed(2) + ' MBq';
-            if (num >= 1e3) return (num / 1e3).toFixed(2) + ' kBq';
+            if (num === undefined || num === null || isNaN(num)) return 'N/A';
             return num.toExponential(2) + ' Bq';
         };
 
@@ -1268,7 +1269,7 @@ const UI = {
             let statusClass = 'fail';
             if (cls === 'Feasible') statusClass = 'pass';
             if (cls === 'Feasible with constraints') statusClass = 'warn';
-            
+
             feasibilityBadgeEl.innerHTML = `<span class="acceptance-status ${statusClass}"><span class="status-icon">${statusClass === 'pass' ? '✔' : (statusClass === 'warn' ? '⚠' : '✖')}</span> ${cls.toUpperCase()}</span>`;
         }
 
@@ -1279,7 +1280,7 @@ const UI = {
             if (evaluation.warnings.length > 0) {
                 warningsHTML = `<div class="acceptance-warnings"><h4>Warnings:</h4><ul>${evaluation.warnings.map(w => `<li>${w}</li>`).join('')}</ul></div>`;
             }
-            
+
             let reasonsHTML = '';
             if (evaluation.reasons.length > 0) {
                 reasonsHTML = `<div class="acceptance-failures"><h4>Constraints/Reasons:</h4><ul>${evaluation.reasons.map(r => `<li>${r}</li>`).join('')}</ul></div>`;
@@ -1304,10 +1305,10 @@ const UI = {
     /**
      * Update equations display section
      */
-    updateEquations: function() {
+    updateEquations: function () {
         // Equations are static in HTML, MathJax will render them
         if (window.MathJax) {
-            MathJax.typesetPromise([document.getElementById('equationDisplay')]).catch(function(err) {
+            MathJax.typesetPromise([document.getElementById('equationDisplay')]).catch(function (err) {
                 console.error('MathJax rendering error:', err);
             });
         }
@@ -1321,7 +1322,7 @@ const UI = {
      * Load Lu-177 validation test case
      * Sets all input values programmatically and validates the results
      */
-    loadLu177TestCase: function() {
+    loadLu177TestCase: function () {
         console.log('========================================');
         console.log('Lu-177 Validation Test Case');
         console.log('========================================');
@@ -1360,8 +1361,8 @@ const UI = {
         // Number density = (density * N_A * enrichment) / (molar_mass / 2)
         const N_AVOGADRO = 6.02214076e23; // atoms/mol
         const lu_atoms_per_molecule = 2;
-        const parent_density_atoms_cm3 = (target_density * N_AVOGADRO * parent_enrichment) / 
-                                         (target_molar_mass / lu_atoms_per_molecule);
+        const parent_density_atoms_cm3 = (target_density * N_AVOGADRO * parent_enrichment) /
+            (target_molar_mass / lu_atoms_per_molecule);
 
         // Calculate flux from source strength
         // Test case aligned with core solid-angle flux model: φ = (S × Ω) / A_target
@@ -1411,7 +1412,7 @@ const UI = {
     /**
      * Validate Lu-177 test case results
      */
-    validateLu177Results: function() {
+    validateLu177Results: function () {
         console.log('\n--- VALIDATION: Intermediate Values ---');
 
         // Get current parameter values
@@ -1529,7 +1530,7 @@ const UI = {
         const beamCurrent = this.getParam('beamCurrent', 1e-6);
         const particleCharge = this.getParam('particleCharge', 1);
         const sourceType = document.getElementById('sourceType').value;
-        
+
         if (sourceType === 'beam') {
             const N_dot = Model.particleRate(beamCurrent, particleCharge);
             const P = Model.beamPower(N_dot, beamEnergy);
@@ -1576,7 +1577,7 @@ const UI = {
     /**
      * Load Mo-99 → Tc-99m generator validation test case
      */
-    loadMo99ValidationCase: function() {
+    loadMo99ValidationCase: function () {
         console.log('========================================');
         console.log('Mo-99 → Tc-99m Generator Validation Test Case');
         console.log('========================================');
@@ -1635,14 +1636,14 @@ const UI = {
     /**
      * Initialize route registry display
      */
-    initializeRouteRegistry: function() {
+    initializeRouteRegistry: function () {
         this.updateRouteRegistry();
     },
 
     /**
      * Switch route registry tab
      */
-    switchRouteTab: function(tabName) {
+    switchRouteTab: function (tabName) {
         // Update tab buttons
         document.querySelectorAll('.route-tab').forEach(tab => {
             tab.classList.remove('active');
@@ -1668,7 +1669,7 @@ const UI = {
     /**
      * Update route registry display
      */
-    updateRouteRegistry: function() {
+    updateRouteRegistry: function () {
         // Get current tab - Support both old .route-tab and new .route-explorer-tab
         const activeTab = document.querySelector('.route-explorer-tab.active') || document.querySelector('.route-tab.active');
         if (!activeTab) return;
@@ -1705,7 +1706,7 @@ const UI = {
             'alphaRoutes': 'alphaRoutesList',
             'industrialRoutes': 'industrialRoutesList'
         };
-        
+
         const targetContainerId = explorerMapping[containerId] || containerId;
         this.displayRoutes(routes, targetContainerId);
     },
@@ -1713,7 +1714,7 @@ const UI = {
     /**
      * Display routes in container
      */
-    displayRoutes: function(routes, containerId) {
+    displayRoutes: function (routes, containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -1740,7 +1741,7 @@ const UI = {
                 } catch (e) {
                     // Ignore trap assessment errors
                 }
-                
+
                 evaluation = {
                     feasibility: 'Not recommended',
                     feasibility_reasons: ['Route evaluation requires additional parameters'],
@@ -1761,7 +1762,7 @@ const UI = {
     /**
      * Get conditions for route evaluation from current UI parameters
      */
-    getRouteEvaluationConditions: function() {
+    getRouteEvaluationConditions: function () {
         const sourceTypeEl = document.getElementById('sourceType');
         const sourceType = sourceTypeEl ? sourceTypeEl.value : 'neutron';
         const neutronFlux = this.getParam('flux', 1e14);
@@ -1787,10 +1788,10 @@ const UI = {
     /**
      * Create route card HTML
      */
-    createRouteCard: function(route, evaluation) {
+    createRouteCard: function (route, evaluation) {
         const reactionStr = `${route.target_isotope}(${route.reaction_type})${route.product_isotope}`;
         const feasibilityClass = evaluation.feasibility.toLowerCase().replace(/\s+/g, '-');
-        
+
         // Format cross-section
         let crossSectionDisplay = 'N/A';
         if (route.reaction_type === 'n,gamma') {
@@ -1803,7 +1804,7 @@ const UI = {
 
         // Format activity
         const activityGBq = evaluation.activity / 1e9;
-        const activityDisplay = activityGBq >= 1 
+        const activityDisplay = activityGBq >= 1
             ? `${activityGBq.toFixed(2)} GBq`
             : `${(activityGBq * 1000).toFixed(2)} MBq`;
 
@@ -1813,8 +1814,8 @@ const UI = {
             : `${(evaluation.specific_activity / 1e9).toFixed(2)} GBq/g`;
 
         // Impurity risk indicator
-        const impurityRiskClass = evaluation.impurity_risk_level === 'high' ? 'high-risk' : 
-                                 evaluation.impurity_risk_level === 'moderate' ? 'moderate-risk' : 'low-risk';
+        const impurityRiskClass = evaluation.impurity_risk_level === 'high' ? 'high-risk' :
+            evaluation.impurity_risk_level === 'moderate' ? 'moderate-risk' : 'low-risk';
 
         let html = `
             <div class="route-card">
@@ -1897,14 +1898,14 @@ const UI = {
     /**
      * Initialize route explorer
      */
-    initRouteExplorer: function() {
+    initRouteExplorer: function () {
         this.populateRouteExplorer();
     },
 
     /**
      * Switch route explorer tab
      */
-    switchRouteExplorerTab: function(tabName) {
+    switchRouteExplorerTab: function (tabName) {
         // Update tab buttons
         document.querySelectorAll('.route-explorer-tab').forEach(tab => {
             tab.classList.remove('active');
@@ -1940,7 +1941,7 @@ const UI = {
     /**
      * Populate route explorer with routes from ISOTOPE_ROUTES
      */
-    populateRouteExplorer: function() {
+    populateRouteExplorer: function () {
         if (typeof ISOTOPE_ROUTES === 'undefined') {
             console.warn('ISOTOPE_ROUTES not loaded');
             return;
@@ -1975,7 +1976,7 @@ const UI = {
     /**
      * Populate a category tab with routes
      */
-    populateCategoryTab: function(containerId, routes, modelState) {
+    populateCategoryTab: function (containerId, routes, modelState) {
         const container = document.getElementById(containerId);
         if (!container) {
             return;
@@ -2041,7 +2042,7 @@ const UI = {
     /**
      * Get regulatory alignment notes for a route
      */
-    getRouteRegulatoryAlignment: function(route) {
+    getRouteRegulatoryAlignment: function (route) {
         const alignments = {
             aerb: [],
             iaea: []
@@ -2075,15 +2076,15 @@ const UI = {
      * Format regulatory alignment text
      * Format: "Aligned with IAEA SRS-63 | AERB/RF-R/SC-1 (planning-level analysis)"
      */
-    formatRegulatoryAlignment: function(alignments) {
+    formatRegulatoryAlignment: function (alignments) {
         const parts = [];
-        
+
         if (alignments.iaea && alignments.iaea.length > 0) {
             // Remove duplicates - IAEA codes already include "IAEA" prefix
             const uniqueIAEA = [...new Set(alignments.iaea)];
             parts.push(uniqueIAEA.join(', '));
         }
-        
+
         if (alignments.aerb && alignments.aerb.length > 0) {
             // Remove duplicates - AERB codes already include "AERB/" prefix
             const uniqueAERB = [...new Set(alignments.aerb)];
@@ -2100,13 +2101,13 @@ const UI = {
     /**
      * Create route card HTML for route explorer
      */
-    createRouteExplorerCard: function(route, evaluation, score) {
+    createRouteExplorerCard: function (route, evaluation, score) {
         const reactionStr = `${route.target_isotope}(${route.reaction})${route.product_isotope}`;
         const feasibilityClass = evaluation.classification.toLowerCase().replace(/\s+/g, '-');
-        
+
         // Format threshold
-        const thresholdDisplay = route.threshold_MeV !== null && route.threshold_MeV > 0 
-            ? `${route.threshold_MeV} MeV` 
+        const thresholdDisplay = route.threshold_MeV !== null && route.threshold_MeV > 0
+            ? `${route.threshold_MeV} MeV`
             : 'N/A';
 
         // Format cross-section
@@ -2136,7 +2137,7 @@ const UI = {
             } else if (score.total_score >= 2.5) {
                 scoreColorClass = 'score-amber';
             }
-            
+
             const cardId = `route-card-${route.id}`;
             scoreDisplay = `
                 <div class="route-score-section">
@@ -2257,7 +2258,7 @@ const UI = {
     /**
      * Get current model state for route evaluation
      */
-    getModelStateForRouteEvaluation: function() {
+    getModelStateForRouteEvaluation: function () {
         const sourceType = document.getElementById('sourceType') ? document.getElementById('sourceType').value : 'neutron';
         const neutronFlux = this.getParam('flux', 1e14);
         const neutronEnergy = this.getParam('beamEnergy', 14.1); // Use beam energy as neutron energy for fast routes
@@ -2285,7 +2286,7 @@ const UI = {
     /**
      * Update comparative charts based on selected routes
      */
-    updateComparativeCharts: function() {
+    updateComparativeCharts: function () {
         if (typeof ISOTOPE_ROUTES === 'undefined') {
             return;
         }
@@ -2367,9 +2368,9 @@ const UI = {
     /**
      * Calculate route data for comparative charts
      */
-    calculateRouteData: function(route, label) {
+    calculateRouteData: function (route, label) {
         const modelState = this.getModelStateForRouteEvaluation();
-        
+
         // Evaluate route to get impurity risk
         let evaluation = null;
         let impurityRisk = 'Low';
@@ -2404,7 +2405,7 @@ const UI = {
         const maxTimeDays = Math.min(route.product_half_life_days * 5, 30); // Cap at 30 days or 5 half-lives
         const timeData = [];
         const activityData = [];
-        const fluxForTime = route.reaction === 'n,γ' || route.reaction === 'n,gamma' 
+        const fluxForTime = route.reaction === 'n,γ' || route.reaction === 'n,gamma'
             ? (modelState.neutronFlux || 1e14)
             : (modelState.neutronFlux || 1e13);
 
@@ -2437,7 +2438,7 @@ const UI = {
             const R = Model.reactionRate(N_target, sigma_cm2, flux, f_shield);
             const N_EOB = Model.atomsAtEOB(R, f_sat_fixed, lambda);
             const activity = Model.activity(lambda, N_EOB);
-            
+
             // Estimate product mass
             const ATOMIC_MASS_UNIT_g = 1.66053906660e-24; // g
             const TYPICAL_ATOMIC_MASS_AMU = 100; // amu (placeholder)
@@ -2462,7 +2463,7 @@ const UI = {
     /**
      * Initialize limitations section
      */
-    initLimitations: function() {
+    initLimitations: function () {
         const limitationsList = document.getElementById('limitationsList');
         if (!limitationsList || typeof ModelLimitations === 'undefined') {
             return;
@@ -2477,7 +2478,7 @@ const UI = {
             const severityClass = `limitation-${lim.severity}`;
             const severityLabel = lim.severity.charAt(0).toUpperCase() + lim.severity.slice(1);
             const statusLabel = lim.status || 'Known – Not Implemented';
-            
+
             html += `
                 <div class="limitation-item ${severityClass}">
                     <div class="limitation-header">
@@ -2502,9 +2503,9 @@ const UI = {
     /**
      * Update Manufacturing Analysis
      */
-    updateManufacturingAnalysis: function() {
+    updateManufacturingAnalysis: function () {
         if (typeof ManufacturingAnalysis === 'undefined') return;
-        
+
         // Get manufacturing parameters from UI
         const beamPower_MW = this.getParam('sourcePower', 1.0);
         const coolantFlow_kg_s = this.getParam('coolantFlow', 0.1);
@@ -2516,7 +2517,7 @@ const UI = {
         const processingTime_hours = this.getParam('chemistryDelay', 24);
         const transportTime_hours = this.getParam('transportTime', 48);
         const sourceUptime = this.getParam('sourceUptime', 0.85);
-        
+
         // Manufacturing-specific parameters
         const facilityCapitalCost_USD = this.getParam('facilityCapitalCost', 10e6);
         const annualOperatingCost_USD = this.getParam('annualOperatingCost', 2e6);
@@ -2524,7 +2525,7 @@ const UI = {
         const sourcePower_MW_manufacturing = this.getParam('sourcePower', 1.0);
         const auxiliaryPower_MW = this.getParam('auxiliaryPower', 0.5);
         const dutyCycle = this.getParam('dutyCycle', 1.0);
-        
+
         // Estimate annual production (planning-grade)
         // Get activity from results if available, otherwise use estimate
         const resultsDisplay = document.getElementById('resultsDisplay');
@@ -2538,10 +2539,10 @@ const UI = {
                 }
             }
         }
-        
-        const batchesPerYear = (365 * sourceUptime) / (irradiationTime_days + processingTime_hours/24 + transportTime_hours/24 + 1);
+
+        const batchesPerYear = (365 * sourceUptime) / (irradiationTime_days + processingTime_hours / 24 + transportTime_hours / 24 + 1);
         const annualProduction_GBq = activity_EOB_GBq * batchesPerYear;
-        
+
         // Run comprehensive analysis
         const analysis = ManufacturingAnalysis.comprehensiveAnalysis({
             beamPower_MW,
@@ -2572,10 +2573,10 @@ const UI = {
             coolingPower_MW: 0.2,
             dutyCycle
         });
-        
+
         // Display results
         this.displayManufacturingResults(analysis);
-        
+
         // Update charts
         if (typeof ManufacturingCharts !== 'undefined') {
             const costContainer = document.getElementById('chartCostBreakdown');
@@ -2583,7 +2584,7 @@ const UI = {
             const wasteContainer = document.getElementById('chartWasteStream');
             const operationsContainer = document.getElementById('chartOperationsTimeline');
             const engineeringContainer = document.getElementById('chartEngineeringConstraints');
-            
+
             if (costContainer) {
                 ManufacturingCharts.costBreakdownChart('chartCostBreakdown', analysis.cost);
             }
@@ -2605,22 +2606,23 @@ const UI = {
     /**
      * Display Manufacturing Analysis Results
      */
-    displayManufacturingResults: function(analysis) {
+    displayManufacturingResults: function (analysis) {
         const display = document.getElementById('manufacturingResultsDisplay');
         if (!display) return;
-        
+
         const formatCurrency = (value) => {
             if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
             if (value >= 1e3) return `$${(value / 1e3).toFixed(2)}K`;
             return `$${value.toFixed(2)}`;
         };
-        
+
         const formatNumber = (value, decimals = 2) => {
-            return value.toFixed(decimals);
+            if (value === undefined || value === null || isNaN(value)) return 'N/A';
+            return value.toExponential(decimals);
         };
-        
+
         let html = '<div class="manufacturing-summary">';
-        
+
         // Summary
         html += '<div class="manufacturing-summary-section">';
         html += '<h4>Summary</h4>';
@@ -2630,14 +2632,14 @@ const UI = {
         html += `<p><strong>Annual Electricity:</strong> ${formatNumber(analysis.summary.keyMetrics.annualElectricity_MWh)} MWh</p>`;
         html += `<p><strong>Annual Waste:</strong> ${formatNumber(analysis.summary.keyMetrics.annualWaste_kg, 3)} kg</p>`;
         html += '</div>';
-        
+
         // Engineering
         html += '<div class="manufacturing-summary-section">';
         html += '<h4>Engineering Constraints</h4>';
         html += `<p><strong>Thermal:</strong> ΔT = ${formatNumber(analysis.engineering.thermal.deltaT_K)} K (limit: ${formatNumber(analysis.engineering.thermal.maxDeltaT_K)} K) - ${analysis.engineering.thermal.status === 'within_limit' ? '✓' : '⚠'}</p>`;
         html += `<p><strong>Damage:</strong> DPA = ${formatNumber(analysis.engineering.damage.totalDPA, 4)} (limit: ${formatNumber(analysis.engineering.damage.maxDPA)}) - ${analysis.engineering.damage.status === 'within_limit' ? '✓' : '⚠'}</p>`;
         html += '</div>';
-        
+
         // Operations
         html += '<div class="manufacturing-summary-section">';
         html += '<h4>Operations</h4>';
@@ -2645,7 +2647,7 @@ const UI = {
         html += `<p><strong>Batches per Year:</strong> ${formatNumber(analysis.operations.throughput.batchesPerYear)}</p>`;
         html += `<p><strong>Effective Uptime:</strong> ${(analysis.operations.throughput.effectiveUptime * 100).toFixed(1)}%</p>`;
         html += '</div>';
-        
+
         // Cost
         html += '<div class="manufacturing-summary-section">';
         html += '<h4>Cost Analysis</h4>';
@@ -2654,7 +2656,7 @@ const UI = {
         html += `<p><strong>Operating:</strong> ${formatCurrency(analysis.cost.operating.base_USD)}/year</p>`;
         html += `<p><strong>Electricity:</strong> ${formatCurrency(analysis.cost.electricity.cost_USD)}/year</p>`;
         html += '</div>';
-        
+
         // Waste
         html += '<div class="manufacturing-summary-section">';
         html += '<h4>Waste Stream</h4>';
@@ -2662,7 +2664,7 @@ const UI = {
         html += `<p><strong>Activity After Storage:</strong> ${formatNumber(analysis.waste.radioactivity.activityAfterStorage_GBq)} GBq</p>`;
         html += `<p><strong>Annual Disposal Cost:</strong> ${formatCurrency(analysis.waste.disposal.annualDisposalCost_USD)}</p>`;
         html += '</div>';
-        
+
         // Electricity
         html += '<div class="manufacturing-summary-section">';
         html += '<h4>Electricity Consumption</h4>';
@@ -2670,16 +2672,16 @@ const UI = {
         html += `<p><strong>Annual Consumption:</strong> ${formatNumber(analysis.electricity.consumption.annual_MWh)} MWh</p>`;
         html += `<p><strong>Annual CO₂:</strong> ${formatNumber(analysis.electricity.environmental.annualCO2_kg / 1000, 2)} metric tons</p>`;
         html += '</div>';
-        
+
         html += '</div>';
-        
+
         display.innerHTML = html;
     },
 
     /**
      * Toggle score breakdown table visibility
      */
-    toggleScoreBreakdown: function(cardId) {
+    toggleScoreBreakdown: function (cardId) {
         const breakdownId = cardId + '-breakdown';
         const breakdownElement = document.getElementById(breakdownId);
         if (!breakdownElement) {
@@ -2720,28 +2722,28 @@ if (typeof console !== 'undefined' && console.warn) {
 // CORE SANITY TEST WIRING
 // ============================================================================
 // Wire core test button (if available)
-(function() {
+(function () {
     // Wait for DOM to be ready
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', wireCoreTest);
     } else {
         wireCoreTest();
     }
-    
+
     function wireCoreTest() {
         const btn = document.getElementById('coreTestBtn');
         if (btn) {
-            btn.onclick = function() {
+            btn.onclick = function () {
                 try {
                     // Import and call coreSanityTest
-                    import('../js/coreSanity.js').then(function(module) {
+                    import('../js/coreSanity.js').then(function (module) {
                         const result = module.coreSanityTest();
                         const out = document.getElementById('coreTestOut');
                         if (out) {
                             out.textContent = 'Core sanity result: ' + result.toExponential(3);
                         }
                         console.log('Core sanity test passed:', result);
-                    }).catch(function(e) {
+                    }).catch(function (e) {
                         console.error('Core sanity import failed:', e);
                         const out = document.getElementById('coreTestOut');
                         if (out) {
@@ -2761,7 +2763,7 @@ if (typeof console !== 'undefined' && console.warn) {
 })();
 
 // Initialize UI when DOM is loaded
-(function() {
+(function () {
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             UI.init();
@@ -2778,23 +2780,23 @@ if (typeof console !== 'undefined' && console.warn) {
 // UI-ONLY CHANGE — NO PHYSICS MODIFICATION
 // Manual "Calculate" triggers the existing UI orchestration function.
 document.getElementById("calculateBtn")?.addEventListener("click", () => {
-  console.log("[UI] Manual calculation triggered");
+    console.log("[UI] Manual calculation triggered");
 
-  // This app’s orchestration entrypoint is UI.updateAllCharts().
-  if (typeof UI !== "undefined" && typeof UI.updateAllCharts === "function") {
-    UI.updateAllCharts();
-  } else if (typeof updateModel === "function") {
-    updateModel();
-  } else if (typeof runCalculation === "function") {
-    runCalculation();
-  } else if (typeof evaluateRoute === "function") {
-    evaluateRoute();
-  } else {
-    console.warn("No calculation function found");
-  }
+    // This app’s orchestration entrypoint is UI.updateAllCharts().
+    if (typeof UI !== "undefined" && typeof UI.updateAllCharts === "function") {
+        UI.updateAllCharts();
+    } else if (typeof updateModel === "function") {
+        updateModel();
+    } else if (typeof runCalculation === "function") {
+        runCalculation();
+    } else if (typeof evaluateRoute === "function") {
+        evaluateRoute();
+    } else {
+        console.warn("No calculation function found");
+    }
 });
 
 document.getElementById("resetBtn")?.addEventListener("click", () => {
-  console.log("[UI] Reset triggered");
-  window.location.reload();
+    console.log("[UI] Reset triggered");
+    window.location.reload();
 });
